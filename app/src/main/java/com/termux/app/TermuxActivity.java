@@ -58,6 +58,7 @@ import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
+import com.termux.workflow.WorkflowDestination;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -246,6 +247,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setTerminalToolbarView(savedInstanceState);
 
         setSettingsButtonView();
+
+        setWorkflowButtons();
 
         setNewSessionButtonView();
 
@@ -568,6 +571,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         settingsButton.setOnClickListener(v -> {
             ActivityUtils.startActivity(this, new Intent(this, SettingsActivity.class));
         });
+    }
+
+    private void setWorkflowButtons() {
+        setWorkflowButton(R.id.workflow_issues_button, WorkflowDestination.Issues);
+        setWorkflowButton(R.id.workflow_projects_button, WorkflowDestination.Projects);
+        setWorkflowButton(R.id.workflow_workspaces_button, WorkflowDestination.Workspaces);
+        setWorkflowButton(R.id.workflow_usage_button, WorkflowDestination.Usage);
+        setWorkflowButton(R.id.workflow_tracker_button, WorkflowDestination.Tracker);
+    }
+
+    private void setWorkflowButton(int viewId, WorkflowDestination destination) {
+        findViewById(viewId).setOnClickListener(v -> ActivityUtils.startActivity(this, destination.intent(this)));
+    }
+
+    public void openWorkflowConsole() {
+        ActivityUtils.startActivity(this, WorkflowDestination.Issues.intent(this));
     }
 
     private void setNewSessionButtonView() {

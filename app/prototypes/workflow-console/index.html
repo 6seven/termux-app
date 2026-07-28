@@ -1,0 +1,490 @@
+<!doctype html>
+<!-- PROTOTYPE / THROWAWAY: Three Workflow Console variants, switchable with ?variant=A|B|C. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Workflow Console Prototype</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      color-scheme: dark;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      background: #090b0d;
+      color: #eef1f3;
+    }
+    body { margin: 0; min-height: 100vh; background: #090b0d; overflow-x: hidden; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .stage { min-height: 100vh; display: flex; justify-content: center; gap: 24px; padding: 24px 24px 94px; }
+    .phone {
+      position: relative;
+      width: min(430px, 100vw);
+      height: min(860px, calc(100vh - 48px));
+      overflow: hidden;
+      border: 1px solid #2c333b;
+      background: var(--bg);
+      color: var(--text);
+      box-shadow: 0 28px 90px rgba(0,0,0,.55);
+    }
+    .phone.a {
+      --bg: #050709; --surface: #0b1014; --surface2: #111820; --text: #edf2f5;
+      --muted: #85909a; --line: #26313a; --accent: #57b3d3; --signal: #6fbd89;
+      font-family: "SFMono-Regular", "Cascadia Code", monospace;
+    }
+    .phone.b {
+      --bg: #e7e0d2; --surface: #f2ecdf; --surface2: #d8d0c0; --text: #191a17;
+      --muted: #64665e; --line: #8e8b7e; --accent: #9f3b2e; --signal: #355f4b;
+      color-scheme: light;
+      font-family: "Iowan Old Style", "Palatino Linotype", serif;
+    }
+    .phone.c {
+      --bg: #07110e; --surface: #0a1b16; --surface2: #102820; --text: #e5f3e7;
+      --muted: #87a594; --line: #28523f; --accent: #e2b85f; --signal: #75d29a;
+      font-family: "SFMono-Regular", "Cascadia Code", monospace;
+    }
+    .prototype-mark {
+      position: absolute; z-index: 30; top: 8px; right: 10px; padding: 4px 7px;
+      border: 1px solid currentColor; color: var(--muted); background: var(--bg);
+      font: 700 9px/1 "SFMono-Regular", monospace; letter-spacing: .12em;
+    }
+    .appbar { min-height: 68px; display: flex; align-items: center; gap: 10px; padding: 20px 14px 8px; border-bottom: 1px solid var(--line); }
+    .menu-button, .state-button {
+      width: 38px; height: 34px; border: 1px solid var(--line); border-radius: 0;
+      color: var(--text); background: var(--surface); font-weight: 800;
+    }
+    .host-copy { min-width: 0; flex: 1; }
+    .host-copy strong { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .host-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    .online-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; background: var(--signal); }
+    .offline .online-dot { background: var(--accent); }
+    .content { height: calc(100% - 68px); overflow-y: auto; padding: 16px 16px 120px; scrollbar-width: thin; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 4px; font-size: 28px; line-height: 1; letter-spacing: -.04em; }
+    h2 { margin-bottom: 10px; font-size: 15px; }
+    .eyebrow { margin-bottom: 8px; color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    .subtle { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .section-title { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+    .section-title strong { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+    .section-title span { color: var(--muted); font-size: 10px; }
+    .row, .card, .metric, .field {
+      border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    }
+    .row { width: 100%; display: block; margin-bottom: 8px; padding: 11px 12px; text-align: left; }
+    .row:hover, .row:focus-visible { border-color: var(--accent); outline: none; }
+    .row-top { display: flex; align-items: center; gap: 8px; }
+    .row-top strong { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-meta { margin-top: 6px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .tag { padding: 3px 6px; border: 1px solid var(--line); color: var(--muted); font-size: 9px; text-transform: uppercase; }
+    .tag.hot { border-color: var(--accent); color: var(--accent); }
+    .button-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .action {
+      min-height: 38px; padding: 8px 12px; border: 1px solid var(--text); border-radius: 0;
+      background: var(--surface2); color: var(--text); font-weight: 800; font-size: 11px;
+    }
+    .action.primary { background: var(--text); color: var(--bg); }
+    .action:disabled { opacity: .38; cursor: not-allowed; }
+    .hero { margin: 12px 0; padding: 16px; border-left: 5px solid var(--accent); background: var(--surface); }
+    .hero h2 { margin-bottom: 8px; font-size: 20px; line-height: 1.2; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+    .metric { padding: 11px; }
+    .metric span { display: block; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+    .metric strong { display: block; margin-top: 6px; font-size: 15px; }
+    .prose { padding: 14px; border: 1px solid var(--line); background: var(--surface); font-size: 12px; line-height: 1.65; }
+    .bar-row { margin: 12px 0; }
+    .bar-label { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--muted); font-size: 10px; }
+    .bar { height: 10px; border: 1px solid var(--line); background: var(--surface); }
+    .bar i { display: block; height: 100%; background: var(--accent); }
+    .form-field { margin: 12px 0; }
+    .form-field label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .form-field input, .form-field textarea {
+      width: 100%; padding: 11px; border: 1px solid var(--line); border-radius: 0;
+      background: var(--surface); color: var(--text); outline: none;
+    }
+    .form-field input:focus, .form-field textarea:focus { border-color: var(--accent); }
+    .binding-grid { display: grid; gap: 8px; }
+    .binding-choice { padding: 12px; border: 1px solid var(--line); background: var(--surface); }
+    .binding-choice.selected { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+    .binding-choice strong { display: block; font-size: 13px; }
+    .binding-choice span { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+    .binding-choice .button-row { margin-top: 8px; }
+    .drawer-scrim { position: absolute; inset: 0; z-index: 40; background: rgba(0,0,0,.58); }
+    .drawer { position: absolute; z-index: 41; background: var(--bg); color: var(--text); border-color: var(--line); }
+    .drawer-head { padding: 22px 16px 14px; border-bottom: 1px solid var(--line); }
+    .drawer-head strong { display: block; font-size: 16px; }
+    .drawer-head span { color: var(--muted); font-size: 10px; }
+    .drawer-session { margin: 12px; padding: 10px; border: 1px solid var(--line); background: var(--surface); font-size: 11px; }
+    .drawer-nav { padding: 0 12px 16px; }
+    .drawer-nav button { width: 100%; display: flex; justify-content: space-between; padding: 11px 8px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; }
+    .drawer-nav button.active { color: var(--accent); font-weight: 800; }
+    .phone.a .drawer { inset: 0 auto 0 0; width: 78%; border-right: 1px solid var(--line); }
+    .phone.b .drawer { inset: 0; padding-top: 26px; }
+    .phone.b .drawer-nav button { padding: 15px 6px; font-size: 20px; }
+    .phone.c .drawer { inset: auto 10px 78px 10px; max-height: 72%; border: 1px solid var(--line); box-shadow: 0 -18px 50px rgba(0,0,0,.5); }
+    .signal-rail { position: absolute; z-index: 20; left: 0; top: 68px; bottom: 0; width: 56px; border-right: 1px solid var(--line); background: var(--surface); }
+    .signal-rail button { width: 100%; height: 57px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--muted); font: 800 9px/1 monospace; }
+    .signal-rail button.active { color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+    .phone.a .content { margin-left: 56px; padding-left: 12px; }
+    .phone.a .issue-row { position: relative; padding-left: 17px; }
+    .phone.a .issue-row:before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--line); }
+    .phone.a .issue-row.high:before { background: #b7a16a; }
+    .ledger-tabs { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); }
+    .ledger-tabs button { padding: 10px 2px; border: 0; border-right: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 9px; text-transform: uppercase; }
+    .ledger-tabs button.active { background: var(--accent); color: #fff; }
+    .phone.b .appbar { min-height: 82px; align-items: flex-end; }
+    .phone.b .content { height: calc(100% - 121px); padding: 20px 18px 120px; }
+    .phone.b h1 { font-size: 38px; font-weight: 500; }
+    .phone.b .row { border-width: 0 0 1px; background: transparent; padding: 15px 4px; }
+    .phone.b .hero { border: 1px solid var(--text); border-left: 12px solid var(--accent); background: transparent; }
+    .phone.b .tag { border-radius: 999px; }
+    .phone.b .section-title strong { font-family: "SFMono-Regular", monospace; }
+    .phone.b .action { font-family: "SFMono-Regular", monospace; }
+    .command-status { margin: 10px 0 16px; padding: 11px; border: 1px dashed var(--line); color: var(--muted); font-size: 10px; }
+    .ops-dock { position: absolute; z-index: 20; left: 10px; right: 10px; bottom: 10px; display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--line); background: var(--surface); }
+    .ops-dock button { min-height: 54px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font: 800 9px/1.2 monospace; }
+    .ops-dock button.active { background: var(--accent); color: #10120d; }
+    .phone.c .content { padding-bottom: 92px; }
+    .phone.c .appbar { background: #06100c; }
+    .phone.c .hero { border: 1px solid var(--accent); box-shadow: inset 0 0 0 3px var(--bg); }
+    .phone.c .row { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; }
+    .phone.c .row:before { content: attr(data-index); color: var(--accent); font-size: 10px; }
+    .phone.c .row-top { display: block; }
+    .phone.c .row-meta { grid-column: 2 / 4; margin-top: 0; }
+    .tmux-banner { display: flex; justify-content: space-between; margin-bottom: 14px; padding: 11px; border: 1px solid var(--line); background: #06100c; color: var(--signal); font-size: 10px; }
+    .state-panel { width: 330px; height: min(860px, calc(100vh - 48px)); overflow: auto; padding: 16px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; }
+    .state-panel h2 { margin-bottom: 4px; font: 700 14px/1.2 "SFMono-Regular", monospace; }
+    .state-panel p { color: #8b949e; font: 11px/1.5 "SFMono-Regular", monospace; }
+    .state-panel pre { white-space: pre-wrap; word-break: break-word; color: #9ecbff; font: 10px/1.55 "SFMono-Regular", monospace; }
+    .state-controls { display: flex; gap: 8px; margin: 12px 0; }
+    .state-controls button { padding: 7px; border: 1px solid #49515b; background: #161b22; color: #c9d1d9; font: 10px monospace; }
+    .prototype-switcher {
+      position: fixed; z-index: 100; left: 50%; bottom: 14px; transform: translateX(-50%);
+      display: grid; grid-template-columns: 44px minmax(188px, auto) 44px; align-items: center;
+      border: 1px solid #eef1f3; background: #11151a; color: #fff; box-shadow: 0 12px 36px rgba(0,0,0,.5);
+    }
+    .prototype-switcher button { height: 42px; border: 0; background: transparent; color: #fff; font-size: 18px; }
+    .variant-label { padding: 0 14px; border-left: 1px solid #404852; border-right: 1px solid #404852; text-align: center; font: 700 11px/1.2 "SFMono-Regular", monospace; }
+    .toast { position: fixed; z-index: 120; left: 50%; top: 24px; transform: translate(-50%, -14px); max-width: 360px; padding: 10px 13px; opacity: 0; pointer-events: none; border: 1px solid #fff; background: #10151a; color: #fff; font: 11px/1.4 monospace; transition: .18s ease; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .empty { padding: 28px 12px; border: 1px dashed var(--line); color: var(--muted); text-align: center; font-size: 12px; }
+    @media (max-width: 820px) {
+      .stage { display: block; padding: 0 0 82px; }
+      .phone { width: 100%; height: calc(100dvh - 82px); border: 0; box-shadow: none; }
+      .state-panel { display: none; position: fixed; z-index: 90; inset: 54px 10px 82px; width: auto; height: auto; box-shadow: 0 18px 60px rgba(0,0,0,.7); }
+      .state-panel.open { display: block; }
+      .prototype-switcher { bottom: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section id="app"></section>
+    <aside id="state-panel" class="state-panel"></aside>
+  </main>
+  <div id="toast" class="toast"></div>
+  <nav class="prototype-switcher" aria-label="Prototype variants">
+    <button type="button" data-action="variant-prev" aria-label="Previous variant">&lt;</button>
+    <div id="variant-label" class="variant-label"></div>
+    <button type="button" data-action="variant-next" aria-label="Next variant">&gt;</button>
+  </nav>
+
+  <script>
+    const variants = {
+      A: "A / Signal Rail",
+      B: "B / Field Ledger",
+      C: "C / Tmux Deck"
+    };
+    const primaryScreens = ["issues", "projects", "workspaces", "usage", "tracker"];
+    const params = new URLSearchParams(location.search);
+    const requestedVariant = (params.get("variant") || "A").toUpperCase();
+    const requestedScreen = (params.get("screen") || "issues").toLowerCase();
+
+    const issues = [
+      { id: "34950", title: "Add Termux workflow console", project: "Project Manager", version: "Mobile", priority: "High", status: "In Progress", bound: true, workspace: true },
+      { id: "34942", title: "Preserve shared OpenCode sessions", project: "Project Manager", version: "Runtime", priority: "Normal", status: "New", bound: true, workspace: false },
+      { id: "8421", title: "CMS attachment preview fails", project: "Appoker CMS", version: "1.8", priority: "Urgent", status: "Feedback", bound: false, workspace: false },
+      { id: "8188", title: "Tanker workspace cleanup", project: "Appoker CMS", version: "Backlog", priority: "Low", status: "New", bound: true, workspace: true }
+    ];
+    const projects = [
+      { id: "project-manager", name: "Project Manager", path: "~/devhub/projects/project-manager/repo", issues: 7, workspaces: 3 },
+      { id: "ai-tracker", name: "AI Tracker", path: "~/devhub/projects/ai-tracker/repo", issues: 3, workspaces: 2 },
+      { id: "appoker-cms", name: "Appoker CMS", path: "~/devhub/projects/appoker-cms/repo", issues: 12, workspaces: 5 }
+    ];
+    const workspaces = [
+      { id: "pm-home", label: "Project Home", name: "project-manager", branch: "main", status: "ready" },
+      { id: "rm-34950", label: "Issue Workspace", name: "#34950 Termux workflow", branch: "pmgr/rm-34950-termux", status: "active" },
+      { id: "rm-8421", label: "Issue Workspace", name: "#8421 attachment preview", branch: "pmgr/rm-8421-preview", status: "waiting" }
+    ];
+
+    const state = {
+      variant: variants[requestedVariant] ? requestedVariant : "A",
+      screen: primaryScreens.includes(requestedScreen) ? requestedScreen : "issues",
+      drawerOpen: false,
+      stateOpen: false,
+      online: true,
+      activeHost: "studio-mac",
+      hostLatencyMs: 18,
+      remoteConnection: { connected: true, termuxSession: "studio-mac", tmuxSession: "dev", activeTarget: "project-manager" },
+      selectedIssueId: null,
+      createMode: false,
+      bindingMain: "project-manager",
+      bindingRefs: ["ai-tracker"],
+      usageFetchedAt: "2m ago",
+      trackerTasks: [
+        { id: "task-1", target: "rm-34950", workspace: "#34950 Termux workflow", status: "in_progress", reason: "", summary: "Design Workflow Console integration", acknowledged: false },
+        { id: "task-2", target: "rm-8421", workspace: "#8421 attachment preview", status: "completed", reason: "waiting", summary: "Need permission to inspect downloaded media", acknowledged: false },
+        { id: "task-3", target: "pm-home", workspace: "project-manager", status: "completed", reason: "done", summary: "Mobile API projection tests passed", acknowledged: false }
+      ],
+      lastAction: "Prototype loaded",
+      actionCount: 0
+    };
+
+    function activeIssue() {
+      return issues.find(issue => issue.id === state.selectedIssueId) || issues[0];
+    }
+
+    function visibleTasks() {
+      return state.trackerTasks.filter(task => task.status === "in_progress" || !task.acknowledged);
+    }
+
+    function disabled() {
+      return state.online ? "" : "disabled";
+    }
+
+    function navButton(screen, shortLabel, fullLabel) {
+      const active = state.screen === screen ? "active" : "";
+      return `<button type="button" class="${active}" data-action="nav" data-screen="${screen}">${shortLabel}<span class="sr-only">${fullLabel}</span></button>`;
+    }
+
+    function header(variantClass, title) {
+      const status = state.online ? `${state.hostLatencyMs}ms / PMGR online` : "cached / PMGR offline";
+      return `
+        <div class="appbar ${state.online ? "" : "offline"}">
+          <button class="menu-button" type="button" data-action="drawer" aria-label="Open Termux drawer">::</button>
+          <div class="host-copy"><strong>${title}</strong><span><i class="online-dot"></i>${state.activeHost} / ${status}</span></div>
+          <button class="state-button" type="button" data-action="state">STATE</button>
+        </div>`;
+    }
+
+    function drawer() {
+      if (!state.drawerOpen) return "";
+      const items = primaryScreens.map((screen, index) => `
+        <button type="button" class="${state.screen === screen ? "active" : ""}" data-action="nav" data-screen="${screen}">
+          <span>0${index + 1} / ${screen.toUpperCase()}</span><span>${screen === "tracker" ? visibleTasks().length : ">"}</span>
+        </button>`).join("");
+      return `
+        <div class="drawer-scrim" data-action="drawer"></div>
+        <aside class="drawer">
+          <div class="drawer-head"><strong>Termux Drawer</strong><span>sessions and workflow destinations</span></div>
+          <div class="drawer-session">SESSION 01<br><strong>${state.remoteConnection.termuxSession}</strong><br><span class="subtle">ssh -> tmux:${state.remoteConnection.tmuxSession}</span></div>
+          <div class="drawer-session">SESSION 02<br><strong>local shell</strong><br><span class="subtle">$PREFIX/home</span></div>
+          <div class="drawer-nav">${items}<button type="button" data-action="focus-terminal"><span>RETURN TO TERMINAL</span><span>&gt;</span></button></div>
+        </aside>`;
+    }
+
+    function issueRows(kind) {
+      if (kind === "ledger") {
+        return issues.map((issue, index) => `
+          <button class="row" type="button" data-action="issue" data-id="${issue.id}">
+            <div class="row-top"><span class="tag ${issue.priority === "Urgent" ? "hot" : ""}">0${index + 1}</span><strong>#${issue.id} ${issue.title}</strong></div>
+            <div class="row-meta">${issue.project} / ${issue.version} / ${issue.status}</div>
+          </button>`).join("");
+      }
+      if (kind === "deck") {
+        return issues.map((issue, index) => `
+          <button class="row" data-index="0${index + 1}" type="button" data-action="issue" data-id="${issue.id}">
+            <div class="row-top"><strong>#${issue.id} ${issue.title}</strong></div><span class="tag ${issue.priority === "Urgent" ? "hot" : ""}">${issue.priority}</span>
+            <div class="row-meta">${issue.project} :: ${issue.version} :: ${issue.workspace ? "workspace ready" : "no workspace"}</div>
+          </button>`).join("");
+      }
+      return issues.map(issue => `
+        <button class="row issue-row ${issue.priority.toLowerCase()}" type="button" data-action="issue" data-id="${issue.id}">
+          <div class="row-top"><strong>#${issue.id} ${issue.title}</strong><span class="tag ${issue.priority === "Urgent" ? "hot" : ""}">${issue.priority}</span></div>
+          <div class="row-meta">${issue.project} / ${issue.version}<br>${issue.status} / ${issue.bound ? "bound" : "unbound"} / ${issue.workspace ? "workspace" : "no workspace"}</div>
+        </button>`).join("");
+    }
+
+    function projectsView(kind) {
+      const rows = projects.map((project, index) => `
+        <button class="row" ${kind === "deck" ? `data-index="0${index + 1}"` : ""} type="button" data-action="activate" data-target="${project.id}">
+          <div class="row-top"><strong>${kind === "ledger" ? `${index + 1}. ` : ""}${project.name}</strong><span class="tag">HOME</span></div>
+          <div class="row-meta">${project.issues} bound issues / ${project.workspaces} workspaces<br>${project.path}</div>
+        </button>`).join("");
+      return `<div class="eyebrow">Project catalog</div><h1>Projects</h1><p class="subtle">Select a Project Home to switch the remote tmux target.</p><div class="section-title"><strong>Available</strong><span>${projects.length}</span></div>${rows}`;
+    }
+
+    function workspacesView(kind) {
+      const rows = workspaces.map((workspace, index) => `
+        <button class="row" ${kind === "deck" ? `data-index="0${index + 1}"` : ""} type="button" data-action="activate" data-target="${workspace.id}">
+          <div class="row-top"><strong>${workspace.name}</strong><span class="tag ${workspace.status === "waiting" ? "hot" : ""}">${workspace.status}</span></div>
+          <div class="row-meta">${workspace.label}<br>${workspace.branch}</div>
+        </button>`).join("");
+      return `<div class="eyebrow">Remote tmux map</div><h1>Workspaces</h1><div class="tmux-banner"><span>TERMUX ${state.remoteConnection.connected ? "CONNECTED" : "DISCONNECTED"}</span><span>tmux:${state.remoteConnection.tmuxSession}</span></div><p class="subtle">Activate switches the remote tmux window, then focuses the existing Termux SSH session.</p>${rows}`;
+    }
+
+    function usageView(kind) {
+      const bars = [
+        ["07-28", 76, "18.4M"], ["07-27", 54, "12.9M"], ["07-26", 91, "22.0M"], ["07-25", 38, "9.2M"]
+      ].map(([day, width, value]) => `<div class="bar-row"><div class="bar-label"><span>${day}</span><span>${value}</span></div><div class="bar"><i style="width:${width}%"></i></div></div>`).join("");
+      return `<div class="eyebrow">Active Host snapshot</div><h1>Token Usage</h1><div class="detail-grid"><div class="metric"><span>Weekly remaining</span><strong>41%</strong></div><div class="metric"><span>Reset</span><strong>2d 8h</strong></div><div class="metric"><span>Today</span><strong>18.4M</strong></div><div class="metric"><span>Snapshot</span><strong>${state.usageFetchedAt}</strong></div></div><div class="section-title"><strong>${kind === "ledger" ? "Daily ledger" : "Daily history"}</strong><span>Codex + OpenCode</span></div>${bars}<div class="button-row"><button class="action primary" type="button" data-action="refresh-usage" ${disabled()}>Refresh snapshot</button></div>`;
+    }
+
+    function trackerView(kind) {
+      const tasks = visibleTasks();
+      const rows = tasks.map((task, index) => `
+        <button class="row" ${kind === "deck" ? `data-index="0${index + 1}"` : ""} type="button" data-action="task" data-id="${task.id}" data-target="${task.target}">
+          <div class="row-top"><strong>${task.workspace}</strong><span class="tag ${task.reason === "waiting" || task.reason === "error" ? "hot" : ""}">${task.status === "in_progress" ? "WORKING" : (task.reason || "DONE")}</span></div>
+          <div class="row-meta">${task.summary}<br>${task.status === "completed" ? "Open to activate and acknowledge" : "Live AI task"}</div>
+        </button>`).join("");
+      return `<div class="eyebrow">Actionable AI work</div><h1>Tracker Inbox</h1><p class="subtle">Opening a completed task activates its tmux target and acknowledges it.</p><div class="section-title"><strong>Needs attention</strong><span>${tasks.length}</span></div>${rows || `<div class="empty">Inbox clear</div>`}`;
+    }
+
+    function issueDetail(kind) {
+      const issue = activeIssue();
+      return `<div class="eyebrow">${kind === "ledger" ? "Issue document" : "Issue detail"}</div><button class="action" type="button" data-action="back-issues">Back</button><div class="hero"><span class="tag ${issue.priority === "Urgent" ? "hot" : ""}">${issue.priority}</span><h2>#${issue.id}<br>${issue.title}</h2><p class="subtle">${issue.project} / ${issue.version} / ${issue.status}</p></div><div class="detail-grid"><div class="metric"><span>Main Project</span><strong>${state.bindingMain}</strong></div><div class="metric"><span>Workspace</span><strong>${issue.workspace ? "Ready" : "Not created"}</strong></div><div class="metric"><span>Assignee</span><strong>dwolf</strong></div><div class="metric"><span>Updated</span><strong>14m ago</strong></div></div><div class="prose"><strong>Description</strong><p>Build a native Workflow Console inside Termux. PMGR remains authoritative. Activating work switches the existing SSH-attached tmux session.</p><strong>Latest feedback</strong><p>Use the existing Android issue, binding and project screens as the migration source.</p></div><div class="button-row"><button class="action" type="button" data-action="edit" ${disabled()}>Edit</button><button class="action" type="button" data-action="binding" ${disabled()}>Binding</button><button class="action primary" type="button" data-action="activate" data-target="rm-${issue.id}" ${disabled()}>${issue.workspace ? "Activate workspace" : "Create workspace"}</button></div>`;
+    }
+
+    function bindingView(kind) {
+      const choices = projects.map(project => {
+        const main = state.bindingMain === project.id;
+        const ref = state.bindingRefs.includes(project.id);
+        return `<div class="binding-choice ${main || ref ? "selected" : ""}"><strong>${project.name}</strong><span>${project.path}</span><div class="button-row"><button class="action" type="button" data-action="set-main" data-id="${project.id}">${main ? "Main" : "Set Main"}</button><button class="action" type="button" data-action="toggle-ref" data-id="${project.id}" ${main ? "disabled" : ""}>${ref ? "Remove Ref" : "Add Ref"}</button></div></div>`;
+      }).join("");
+      return `<div class="eyebrow">Issue project binding</div><h1>Bind #${activeIssue().id}</h1><p class="subtle">Main Project becomes fixed after the Issue Workspace is created. Reference Projects remain adjustable.</p><div class="binding-grid">${choices}</div><div class="button-row"><button class="action" type="button" data-action="detail">Cancel</button><button class="action primary" type="button" data-action="save-binding" ${disabled()}>Save + Workspace</button></div>`;
+    }
+
+    function editorView(kind) {
+      const issue = activeIssue();
+      return `<div class="eyebrow">${state.createMode ? "Create issue" : `Edit #${issue.id}`}</div><h1>${state.createMode ? "New Issue" : "Issue Editor"}</h1><div class="form-field"><label>Project</label><input value="${state.createMode ? "Project Manager" : issue.project}"></div><div class="form-field"><label>Subject</label><input value="${state.createMode ? "" : issue.title}" placeholder="Describe the work"></div><div class="form-field"><label>Description</label><textarea rows="6">${state.createMode ? "" : "Build a native workflow console inside Termux."}</textarea></div><div class="form-field"><label>Note</label><textarea rows="3" placeholder="Optional update"></textarea></div><div class="button-row"><button class="action" type="button" data-action="${state.createMode ? "back-issues" : "detail"}">Cancel</button><button class="action primary" type="button" data-action="save-edit" ${disabled()}>Save issue</button></div>`;
+    }
+
+    function screenBody(kind) {
+      if (state.screen === "detail") return issueDetail(kind);
+      if (state.screen === "binding") return bindingView(kind);
+      if (state.screen === "editor") return editorView(kind);
+      if (state.screen === "projects") return projectsView(kind);
+      if (state.screen === "workspaces") return workspacesView(kind);
+      if (state.screen === "usage") return usageView(kind);
+      if (state.screen === "tracker") return trackerView(kind);
+      if (kind === "ledger") {
+        const focus = issues[0];
+        return `<div class="eyebrow">Work ledger / ${new Date().toLocaleDateString()}</div><h1>Issues in motion</h1><div class="hero"><span class="tag hot">CURRENT</span><h2>#${focus.id}<br>${focus.title}</h2><p class="subtle">${focus.project} / ${focus.status}</p><div class="button-row"><button class="action primary" type="button" data-action="issue" data-id="${focus.id}">Read issue</button></div></div><div class="section-title"><strong>Queue</strong><span>${issues.length} open</span></div>${issueRows("ledger")}<div class="button-row"><button class="action" type="button" data-action="create" ${disabled()}>New Issue</button></div>`;
+      }
+      if (kind === "deck") {
+        return `<div class="tmux-banner"><span>ACTIVE ${state.remoteConnection.activeTarget}</span><span>${visibleTasks().length} SIGNALS</span></div><div class="eyebrow">Select work / Enter to inspect</div><h1>Issue Deck</h1><div class="command-status">$ pmgr mobile issues --host ${state.activeHost}<br>authoritative state: ${state.online ? "reachable" : "cached read-only"}</div>${issueRows("deck")}<div class="button-row"><button class="action primary" type="button" data-action="create" ${disabled()}>+ create</button></div>`;
+      }
+      return `<div class="eyebrow">Assigned open / grouped</div><h1>Issue Console</h1><p class="subtle">Project -> version -> priority. Tap an issue to inspect it before creating work.</p><div class="section-title"><strong>Project Manager / Mobile</strong><span>2 issues</span></div>${issueRows("signal")}<div class="button-row"><button class="action primary" type="button" data-action="create" ${disabled()}>New Issue</button></div>`;
+    }
+
+    function renderA() {
+      return `<div class="phone a">${header("a", "WORKFLOW / SIGNAL RAIL")}<nav class="signal-rail">${navButton("issues", "ISS", "Issues")}${navButton("projects", "PRJ", "Projects")}${navButton("workspaces", "WRK", "Workspaces")}${navButton("usage", "USE", "Usage")}${navButton("tracker", "TRK", "Tracker")}</nav><div class="content">${screenBody("signal")}</div><div class="prototype-mark">PROTOTYPE / A</div>${drawer()}</div>`;
+    }
+
+    function renderB() {
+      const tabs = primaryScreens.map(screen => `<button class="${state.screen === screen ? "active" : ""}" type="button" data-action="nav" data-screen="${screen}">${screen.slice(0, 4)}</button>`).join("");
+      return `<div class="phone b">${header("b", "The Remote Work Ledger")}<nav class="ledger-tabs">${tabs}</nav><div class="content">${screenBody("ledger")}</div><div class="prototype-mark">PROTOTYPE / B</div>${drawer()}</div>`;
+    }
+
+    function renderC() {
+      const dock = primaryScreens.map(screen => `<button class="${state.screen === screen ? "active" : ""}" type="button" data-action="nav" data-screen="${screen}">${screen.toUpperCase()}</button>`).join("");
+      return `<div class="phone c">${header("c", "${state.activeHost} :: tmux/${state.remoteConnection.tmuxSession}")}<div class="content">${screenBody("deck")}</div><nav class="ops-dock">${dock}</nav><div class="prototype-mark">PROTOTYPE / C</div>${drawer()}</div>`;
+    }
+
+    function publicState() {
+      return {
+        question: "What should the Termux Workflow Console look like?",
+        variant: variants[state.variant],
+        screen: state.screen,
+        activeHost: state.activeHost,
+        authoritativeState: state.online ? "reachable" : "unreachable",
+        offlineView: !state.online,
+        remoteTmuxConnection: state.remoteConnection,
+        selectedIssueId: state.selectedIssueId,
+        binding: { mainProject: state.bindingMain, referenceProjects: state.bindingRefs },
+        trackerInbox: visibleTasks(),
+        usageFetchedAt: state.usageFetchedAt,
+        lastAction: state.lastAction,
+        actionCount: state.actionCount
+      };
+    }
+
+    function renderState() {
+      const panel = document.getElementById("state-panel");
+      panel.className = `state-panel ${state.stateOpen ? "open" : ""}`;
+      panel.innerHTML = `<h2>PROTOTYPE STATE</h2><p>Every action updates this in-memory state. No API, SSH, tmux, or persistence is used.</p><div class="state-controls"><button data-action="toggle-online">${state.online ? "Simulate offline" : "Restore PMGR"}</button><button data-action="state">Close panel</button></div><pre></pre>`;
+      panel.querySelector("pre").textContent = JSON.stringify(publicState(), null, 2);
+    }
+
+    function render() {
+      document.getElementById("app").innerHTML = state.variant === "B" ? renderB() : state.variant === "C" ? renderC() : renderA();
+      document.getElementById("variant-label").textContent = variants[state.variant];
+      renderState();
+      const url = new URL(location.href);
+      url.searchParams.set("variant", state.variant);
+      url.searchParams.set("screen", primaryScreens.includes(state.screen) ? state.screen : "issues");
+      try { history.replaceState(null, "", url); } catch (_) {}
+    }
+
+    let toastTimer;
+    function toast(message) {
+      const node = document.getElementById("toast");
+      node.textContent = message;
+      node.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => node.classList.remove("show"), 1800);
+    }
+
+    function record(message, mutation, notify = true) {
+      if (mutation) mutation();
+      state.lastAction = message;
+      state.actionCount += 1;
+      render();
+      if (notify) toast(message);
+    }
+
+    function switchVariant(delta) {
+      const keys = Object.keys(variants);
+      const index = keys.indexOf(state.variant);
+      record(`Switched to ${variants[keys[(index + delta + keys.length) % keys.length]]}`, () => {
+        state.variant = keys[(index + delta + keys.length) % keys.length];
+        state.drawerOpen = false;
+      }, false);
+    }
+
+    document.addEventListener("click", event => {
+      const target = event.target.closest("[data-action]");
+      if (!target) return;
+      const action = target.dataset.action;
+      if (action === "variant-prev") return switchVariant(-1);
+      if (action === "variant-next") return switchVariant(1);
+      if (action === "drawer") return record("Toggled Termux drawer", () => state.drawerOpen = !state.drawerOpen, false);
+      if (action === "state") return record("Toggled state inspector", () => state.stateOpen = !state.stateOpen, false);
+      if (action === "toggle-online") return record(state.online ? "PMGR unavailable; entered Offline View" : "PMGR reachable; left Offline View", () => state.online = !state.online);
+      if (action === "nav") return record(`Opened ${target.dataset.screen}`, () => { state.screen = target.dataset.screen; state.drawerOpen = false; state.selectedIssueId = null; }, false);
+      if (action === "issue") return record(`Opened issue #${target.dataset.id}`, () => { state.selectedIssueId = target.dataset.id; state.screen = "detail"; });
+      if (action === "back-issues") return record("Returned to Issues", () => { state.screen = "issues"; state.selectedIssueId = null; }, false);
+      if (action === "detail") return record("Returned to Issue Detail", () => state.screen = "detail", false);
+      if (action === "binding") return record("Opened Issue Binding", () => state.screen = "binding");
+      if (action === "edit") return record("Opened Issue Editor", () => { state.screen = "editor"; state.createMode = false; });
+      if (action === "create") return record("Opened New Issue form", () => { state.screen = "editor"; state.createMode = true; });
+      if (action === "save-edit") return record(state.createMode ? "Created issue draft" : `Saved issue #${activeIssue().id}`, () => { state.screen = state.createMode ? "issues" : "detail"; state.createMode = false; });
+      if (action === "set-main") return record(`Selected Main Project ${target.dataset.id}`, () => { state.bindingMain = target.dataset.id; state.bindingRefs = state.bindingRefs.filter(id => id !== target.dataset.id); });
+      if (action === "toggle-ref") return record(`Toggled Reference Project ${target.dataset.id}`, () => { const id = target.dataset.id; state.bindingRefs = state.bindingRefs.includes(id) ? state.bindingRefs.filter(item => item !== id) : [...state.bindingRefs, id]; });
+      if (action === "save-binding") return record(`Saved binding and prepared workspace for #${activeIssue().id}`, () => { activeIssue().bound = true; activeIssue().workspace = true; state.screen = "detail"; });
+      if (action === "activate") return record(`Activated ${target.dataset.target} in remote tmux`, () => { state.remoteConnection.connected = true; state.remoteConnection.activeTarget = target.dataset.target; });
+      if (action === "task") return record(`Activated ${target.dataset.target} and acknowledged tracker task`, () => { const task = state.trackerTasks.find(item => item.id === target.dataset.id); if (task) task.acknowledged = true; state.remoteConnection.activeTarget = target.dataset.target; });
+      if (action === "refresh-usage") return record("Requested a fresh Usage Snapshot", () => state.usageFetchedAt = "now");
+      if (action === "focus-terminal") return record(`Focused Termux SSH session ${state.remoteConnection.termuxSession}`, () => state.drawerOpen = false);
+    });
+
+    document.addEventListener("keydown", event => {
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (["INPUT", "TEXTAREA", "SELECT"].includes(tag) || document.activeElement?.isContentEditable) return;
+      if (event.key === "ArrowLeft") switchVariant(-1);
+      if (event.key === "ArrowRight") switchVariant(1);
+    });
+
+    render();
+  </script>
+</body>
+</html>

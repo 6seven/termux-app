@@ -86,6 +86,11 @@
     <string name="action_toggle_keep_screen_on">Keep screen on</string>
     <string name="action_open_help">Help</string>
     <string name="action_open_settings">Settings</string>
+    <string name="workflow_issues">Workflow: Issues</string>
+    <string name="workflow_projects">Workflow: Projects</string>
+    <string name="workflow_workspaces">Workflow: Workspaces</string>
+    <string name="workflow_usage">Workflow: Usage</string>
+    <string name="workflow_tracker">Workflow: Tracker</string>
 
     <string name="action_report_issue">Report Issue</string>
     <string name="msg_generating_report">Generating Report</string>

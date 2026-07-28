@@ -59,6 +59,53 @@
                         app:tint="?attr/termuxActivityDrawerImageTint" />
                 </LinearLayout>
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="8dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/workflow_issues_button"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/workflow_issues" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/workflow_projects_button"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/workflow_projects" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/workflow_workspaces_button"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/workflow_workspaces" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/workflow_usage_button"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/workflow_usage" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/workflow_tracker_button"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/workflow_tracker" />
+                </LinearLayout>
+
                 <ListView
                     android:id="@+id/terminal_sessions_list"
                     android:layout_width="match_parent"

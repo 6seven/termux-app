@@ -93,6 +93,8 @@ public class TermuxTerminalExtraKeys extends TerminalExtraKeys {
                 drawerLayout.closeDrawer(Gravity.LEFT);
             else
                 drawerLayout.openDrawer(Gravity.LEFT);
+        } else if ("WORKFLOW".equals(key)) {
+            mActivity.openWorkflowConsole();
         } else if ("PASTE".equals(key)) {
             if(mTermuxTerminalSessionActivityClient != null)
                 mTermuxTerminalSessionActivityClient.onPasteTextFromClipboard(null);
