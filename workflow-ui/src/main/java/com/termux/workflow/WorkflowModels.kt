@@ -120,6 +120,7 @@ data class TrackerItem(
 ) {
     val id: String get() = "$sessionId::$windowId::$pane"
     val completed: Boolean get() = state.equals("completed", true) || completedAt.isNotBlank()
+    val waiting: Boolean get() = completed && !acknowledged && attentionReason.equals("waiting", true)
 }
 
 data class UsageMetric(
@@ -133,7 +134,17 @@ data class UsageMetric(
     val displayLimit: String? get() = limit?.let(::compactDecimal)
 }
 
-data class UsageDay(val day: String, val codex: Long, val opencode: Long) {
+data class TokenCost(
+    val inputUncached: Long = 0,
+    val output: Long = 0,
+    val inputCached: Long = 0,
+) {
+    val totalTokens: Long get() = inputUncached + output + inputCached
+    val cny: Double get() = (inputUncached * 3.0 + output * 6.0 + inputCached * 0.025) / 1_000_000
+    val cnyDisplay: String get() = compactMoney(cny)
+}
+
+data class UsageDay(val day: String, val codex: Long, val opencode: Long, val cost: TokenCost = TokenCost()) {
     val total: Long get() = codex + opencode
     val codexDisplay: String get() = compactTokenCount(codex)
     val opencodeDisplay: String get() = compactTokenCount(opencode)
@@ -148,6 +159,8 @@ data class UsageProject(val name: String, val total: Long, val daily: Long) {
 data class UsageState(
     val metrics: List<UsageMetric> = emptyList(),
     val resetCreditExpiries: List<String> = emptyList(),
+    val tokenCost: TokenCost = TokenCost(),
+    val dailyTokenCost: TokenCost = TokenCost(),
     val days: List<UsageDay> = emptyList(),
     val projects: List<UsageProject> = emptyList(),
     val refreshedAt: String = "",
@@ -186,6 +199,12 @@ private fun parseUsageInstant(timestamp: String): Instant? = runCatching { Offse
 
 private fun compactDecimal(value: Double): String =
     if (value % 1.0 == 0.0) value.toLong().toString() else String.format(Locale.US, "%.1f", value)
+
+private fun compactMoney(value: Double): String = when {
+    value >= 1_000 -> String.format(Locale.US, "%.0f", value)
+    value >= 10 -> String.format(Locale.US, "%.1f", value)
+    else -> String.format(Locale.US, "%.2f", value.coerceAtLeast(0.0))
+}
 
 data class TrackerState(
     val available: Boolean = true,

@@ -169,10 +169,17 @@ object WorkflowCacheCodec {
         .put("usage", JSONObject()
             .put("metrics", JSONArray(tracker.usage.metrics.map { JSONObject().put("label", it.label).put("used", it.used).put("limit", it.limit).put("unit", it.unit).put("reset_at", it.resetAt) }))
             .put("reset_credit_expiries", JSONArray(tracker.usage.resetCreditExpiries))
-            .put("days", JSONArray(tracker.usage.days.map { JSONObject().put("day", it.day).put("codex", it.codex).put("opencode", it.opencode) }))
+            .put("token_cost", tokenCostJson(tracker.usage.tokenCost))
+            .put("daily_token_cost", tokenCostJson(tracker.usage.dailyTokenCost))
+            .put("days", JSONArray(tracker.usage.days.map { JSONObject().put("day", it.day).put("codex", it.codex).put("opencode", it.opencode).put("cost", tokenCostJson(it.cost)) }))
             .put("projects", JSONArray(tracker.usage.projects.map { JSONObject().put("name", it.name).put("total", it.total).put("daily", it.daily) }))
             .put("refreshed_at", tracker.usage.refreshedAt))
         .put("usage_refreshing", tracker.usageRefreshing)
+
+    private fun tokenCostJson(cost: TokenCost) = JSONObject()
+        .put("input_uncached", cost.inputUncached)
+        .put("output", cost.output)
+        .put("input_cached", cost.inputCached)
 
     private fun parseTracker(value: JSONObject): TrackerState {
         val items = value.optJSONArray("items") ?: JSONArray()
@@ -190,13 +197,21 @@ object WorkflowCacheCodec {
             usage = UsageState(
                 metrics = (0 until metrics.length()).map { metrics.getJSONObject(it) }.map { UsageMetric(it.optString("label"), it.optDouble("used"), if (it.isNull("limit")) null else it.optDouble("limit"), it.optString("unit"), it.optString("reset_at")) },
                 resetCreditExpiries = usage.optJSONArray("reset_credit_expiries")?.let { expiries -> (0 until expiries.length()).map(expiries::optString) }.orEmpty(),
-                days = (0 until days.length()).map { days.getJSONObject(it) }.map { UsageDay(it.optString("day"), it.optLong("codex"), it.optLong("opencode")) },
+                tokenCost = parseTokenCost(usage.optJSONObject("token_cost")),
+                dailyTokenCost = parseTokenCost(usage.optJSONObject("daily_token_cost")),
+                days = (0 until days.length()).map { days.getJSONObject(it) }.map { UsageDay(it.optString("day"), it.optLong("codex"), it.optLong("opencode"), parseTokenCost(it.optJSONObject("cost"))) },
                 projects = (0 until projects.length()).map { projects.getJSONObject(it) }.map { UsageProject(it.optString("name"), it.optLong("total"), it.optLong("daily")) },
                 refreshedAt = usage.optString("refreshed_at"),
             ),
             usageRefreshing = value.optBoolean("usage_refreshing"),
         )
     }
+
+    private fun parseTokenCost(value: JSONObject?) = TokenCost(
+        inputUncached = value?.optLong("input_uncached") ?: 0,
+        output = value?.optLong("output") ?: 0,
+        inputCached = value?.optLong("input_cached") ?: 0,
+    )
 }
 
 class WorkflowRepository(

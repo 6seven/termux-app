@@ -2,6 +2,8 @@ package com.termux.workflow
 
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WorkflowModelsTest {
@@ -29,5 +31,26 @@ class WorkflowModelsTest {
         assertEquals("4h5m", compactDurationUntil("2026-07-28T12:05:00Z", now))
         assertEquals("6d19h", compactDurationUntil("2026-08-04T11:13:18+08:00", now))
         assertEquals("0m", compactDurationUntil("2026-07-28T07:00:00Z", now))
+    }
+
+    @Test
+    fun costAndWaitingStateSurviveCacheRoundTrip() {
+        val waiting = TrackerItem("$0", "dev", "@7", "project", "%12", "completed", "Approve", "waiting")
+        val cost = TokenCost(inputUncached = 1_000_000, output = 500_000, inputCached = 2_000_000)
+        val data = WorkflowData(
+            tracker = TrackerState(
+                items = listOf(waiting),
+                usage = UsageState(tokenCost = cost, dailyTokenCost = cost, days = listOf(UsageDay("2026-07-28", 1, 2, cost))),
+            ),
+        )
+
+        val decoded = WorkflowCacheCodec.decode(WorkflowCacheCodec.encode(data))
+
+        assertTrue(decoded.tracker.items.single().waiting)
+        assertFalse(waiting.copy(acknowledged = true).waiting)
+        assertEquals(cost, decoded.tracker.usage.tokenCost)
+        assertEquals(cost, decoded.tracker.usage.dailyTokenCost)
+        assertEquals(cost, decoded.tracker.usage.days.single().cost)
+        assertEquals("6.05", cost.cnyDisplay)
     }
 }

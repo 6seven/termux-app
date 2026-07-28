@@ -2,6 +2,7 @@ package com.termux.workflow
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -40,5 +41,18 @@ class SshLauncherTest {
         } finally {
             assertEquals(null, starter.lastCommand)
         }
+    }
+
+    @Test
+    fun canSwitchSessionWithoutOpeningActivity() = runTest {
+        val starter = SshSessionStarter { }
+        val launcher = SshLauncher(
+            activationGateway = ActivationGateway { targetId -> ActivationResult(targetId, "development", "project-home") },
+            sessionStarter = starter,
+        )
+
+        launcher.launch(HostProfile("profile-a", "Desk", "https://pmgr", "desk"), "project:1", openActivity = false)
+
+        assertFalse(starter.lastCommand?.openActivity ?: true)
     }
 }

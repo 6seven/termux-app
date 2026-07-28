@@ -77,6 +77,7 @@ private val ConsoleColors = darkColorScheme(
     outline = Color(0xFF344253),
     error = Color(0xFFFF8585),
 )
+private val WaitingColor = Color(0xFFFF8B1F)
 
 @Composable
 fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () -> Unit) {
@@ -129,7 +130,7 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
         return runCatching { WorkflowApiClient(profile.pmgrUrl, activeToken) }.getOrNull()
     }
 
-    fun activate(target: ActivationTarget? = null, trackerItem: TrackerItem? = null) {
+    fun activate(target: ActivationTarget? = null, trackerItem: TrackerItem? = null, closeAfterActivation: Boolean = false) {
         val profile = state.activeProfile ?: return
         val activationId = trackerItem?.id ?: target?.id ?: return
         if (!state.canMutate) {
@@ -137,7 +138,13 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
             val connectionTmuxSession = state.data.tracker.connectionTmuxSession
             if (cachedTarget != null && cachedTarget.id == state.data.tracker.activeTarget?.id && cachedTarget.tmuxSession != null) {
                 runCatching {
-                    SshLauncher(ActivationGateway { error("Offline") }, sessionStarter).focusCached(profile, cachedTarget)
+                    SshLauncher(ActivationGateway { error("Offline") }, sessionStarter).focusCached(
+                        profile,
+                        cachedTarget,
+                        openActivity = !closeAfterActivation,
+                    )
+                }.onSuccess {
+                    if (closeAfterActivation) onClose()
                 }.onFailure { dispatch(WorkflowEvent.ActivationFailed(it.message ?: "Could not focus cached SSH session")) }
             } else if (trackerItem != null && connectionTmuxSession != null) {
                 runCatching {
@@ -158,7 +165,7 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
                 if (trackerItem != null) {
                     launcher.launch(profile) { client.activateTrackerItem(trackerItem) }
                 } else {
-                    launcher.launch(profile, requireNotNull(target).id)
+                    launcher.launch(profile, requireNotNull(target).id, openActivity = !closeAfterActivation)
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -169,6 +176,7 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
             if (trackerItem == null) {
                 dispatch(WorkflowEvent.ActivationSucceeded(result))
                 cache.write(profile.id, state.data)
+                if (closeAfterActivation) onClose()
                 return@launch
             }
             dispatch(WorkflowEvent.TrackerActivationSucceeded(result, trackerItem.id))
@@ -377,14 +385,14 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
                                     targets = state.data.targets,
                                     switchingId = state.switchingTargetId,
                                     enabled = state.canMutate,
-                                    onActivate = { activate(target = it) },
+                                    onActivate = { activate(target = it, closeAfterActivation = true) },
                                 )
                                 WorkflowDestination.Workspaces -> WorkspacesScreen(
                                     targets = state.data.targets,
                                     activeTarget = state.data.tracker.activeTarget,
                                     switchingId = state.switchingTargetId,
                                     online = state.canMutate,
-                                    onActivate = { activate(target = it) },
+                                    onActivate = { activate(target = it, closeAfterActivation = true) },
                                 )
                                 WorkflowDestination.Usage -> UsageScreen(
                                     tracker = state.data.tracker,
@@ -828,6 +836,9 @@ private fun UsageScreen(tracker: TrackerState, enabled: Boolean, onRefresh: () -
                 }
             }
         }
+        if (usage.tokenCost.totalTokens > 0 || usage.dailyTokenCost.totalTokens > 0) {
+            item { CostSummary(usage.tokenCost, usage.dailyTokenCost) }
+        }
         item {
             SectionHeading("RESET CREDITS")
             ConsoleCard(accent = ConsoleColors.secondary) {
@@ -843,6 +854,16 @@ private fun UsageScreen(tracker: TrackerState, enabled: Boolean, onRefresh: () -
         }
         item { DailyUsageChart(usage.days) }
         item { ProjectUsageChart(usage.projects) }
+    }
+}
+
+@Composable
+private fun CostSummary(total: TokenCost, today: TokenCost) {
+    SectionHeading("COST ESTIMATE")
+    ConsoleCard(accent = ConsoleColors.secondary) {
+        Text("TODAY CNY ${today.cnyDisplay}", color = ConsoleColors.secondary, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        MetaLine("TOTAL CNY ${total.cnyDisplay} | DeepSeek-V4-Pro")
+        MetaLine("Input ${today.inputUncached.let(::compactTokenCount)} | Output ${today.output.let(::compactTokenCount)} | Cached ${today.inputCached.let(::compactTokenCount)}")
     }
 }
 
@@ -880,6 +901,9 @@ private fun DailyUsageChart(days: List<UsageDay>) {
                     ) {
                         Box(Modifier.fillMaxWidth().height(opencodeHeight.dp).background(ConsoleColors.primary))
                         Box(Modifier.fillMaxWidth().height(codexHeight.dp).background(ConsoleColors.secondary))
+                    }
+                    if (day.cost.totalTokens > 0) {
+                        Text("CNY ${day.cost.cnyDisplay}", color = ConsoleColors.secondary, fontFamily = FontFamily.Monospace, fontSize = 9.sp)
                     }
                     Text(day.day.takeLast(5), color = ConsoleColors.outline, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 }
@@ -948,12 +972,22 @@ private fun TrackerScreen(
         tracker.error?.let { error -> item { EmptyLine(error) } }
         if (inbox.isEmpty()) item { EmptyLine("No in-progress or unacknowledged completed tasks") }
         items(inbox, key = { it.id }) { item ->
-            ConsoleCard(onClick = { if (enabled) onOpen(item) }, accent = if (item.completed) ConsoleColors.secondary else ConsoleColors.primary) {
+            val accent = when {
+                item.waiting -> WaitingColor
+                item.completed -> ConsoleColors.secondary
+                else -> ConsoleColors.primary
+            }
+            ConsoleCard(onClick = { if (enabled) onOpen(item) }, accent = accent) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(item.title.ifBlank { item.id }, Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                    StatusTag(if (switchingId == item.id) "SWITCHING" else item.state.uppercase(), !item.completed)
+                    when {
+                        switchingId == item.id -> StatusTag("SWITCHING", true)
+                        item.waiting -> BindingTag("WAITING", WaitingColor)
+                        else -> StatusTag(item.state.uppercase(), !item.completed)
+                    }
                 }
-                MetaLine(listOf(item.attentionReason, item.session, item.window, item.completedAt).filter(String::isNotBlank).joinToString(" | "))
+                val attention = if (item.waiting) "Waiting for user" else item.attentionReason
+                MetaLine(listOf(attention, item.session, item.window, item.completedAt).filter(String::isNotBlank).joinToString(" | "))
             }
         }
     }

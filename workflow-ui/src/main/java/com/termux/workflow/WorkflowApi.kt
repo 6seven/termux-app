@@ -297,8 +297,10 @@ class WorkflowApiClient(
         return UsageState(
             metrics = metrics,
             resetCreditExpiries = value.array("reset_credit_expiries").strings(),
+            tokenCost = parseTokenCost(value.objectOrNull("token_cost")),
+            dailyTokenCost = parseTokenCost(value.objectOrNull("daily_token_cost")),
             days = value.array("days").objects().map {
-                UsageDay(it.string("day"), it.optLong("codex"), it.optLong("opencode"))
+                UsageDay(it.string("day"), it.optLong("codex"), it.optLong("opencode"), parseTokenCost(it.objectOrNull("cost")))
             },
             projects = value.array("opencode_projects").objects().map {
                 UsageProject(
@@ -320,6 +322,12 @@ class WorkflowApiClient(
             .build()
     }
 }
+
+private fun parseTokenCost(value: JSONObject?) = TokenCost(
+    inputUncached = value?.optLong("input_uncached") ?: 0,
+    output = value?.optLong("output") ?: 0,
+    inputCached = value?.optLong("input_cached") ?: 0,
+)
 
 class WorkflowApiException(val statusCode: Int, message: String) : RuntimeException(message)
 

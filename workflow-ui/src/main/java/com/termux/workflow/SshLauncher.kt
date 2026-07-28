@@ -17,6 +17,7 @@ data class SshCommand(
     val arguments: List<String>,
     val shellName: String,
     val reuseNamedShell: Boolean,
+    val openActivity: Boolean = true,
 )
 
 fun interface SshSessionCommandStarter {
@@ -37,27 +38,27 @@ class SshLauncher(
     private val activationGateway: ActivationGateway,
     private val sessionStarter: SshSessionCommandStarter,
 ) {
-    suspend fun launch(profile: HostProfile, targetId: String): ActivationResult {
-        return launch(profile) { activationGateway.activateTarget(targetId) }
+    suspend fun launch(profile: HostProfile, targetId: String, openActivity: Boolean = true): ActivationResult {
+        return launch(profile, openActivity) { activationGateway.activateTarget(targetId) }
     }
 
-    suspend fun launch(profile: HostProfile, activate: suspend () -> ActivationResult): ActivationResult {
+    suspend fun launch(profile: HostProfile, openActivity: Boolean = true, activate: suspend () -> ActivationResult): ActivationResult {
         val result = activate()
-        sessionStarter.start(command(profile, result))
+        sessionStarter.start(command(profile, result, openActivity))
         return result
     }
 
-    fun focusCached(profile: HostProfile, target: ActivationTarget) {
+    fun focusCached(profile: HostProfile, target: ActivationTarget, openActivity: Boolean = true) {
         val tmuxSession = requireNotNull(target.tmuxSession) { "Cached target has no tmux session" }
-        focusCached(profile, target.id, tmuxSession)
+        focusCached(profile, target.id, tmuxSession, openActivity)
     }
 
-    fun focusCached(profile: HostProfile, targetId: String, tmuxSession: String) {
-        sessionStarter.start(command(profile, ActivationResult(targetId, profile.sshHostAlias, tmuxSession)))
+    fun focusCached(profile: HostProfile, targetId: String, tmuxSession: String, openActivity: Boolean = true) {
+        sessionStarter.start(command(profile, ActivationResult(targetId, profile.sshHostAlias, tmuxSession), openActivity))
     }
 
     companion object {
-        fun command(profile: HostProfile, result: ActivationResult): SshCommand = SshCommand(
+        fun command(profile: HostProfile, result: ActivationResult, openActivity: Boolean = true): SshCommand = SshCommand(
             executable = "${TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH}/ssh",
             arguments = listOf(
                 "-tt",
@@ -69,6 +70,7 @@ class SshLauncher(
             ),
             shellName = "workflow-ssh-${profile.id.replace(Regex("[^A-Za-z0-9._-]"), "-")}",
             reuseNamedShell = true,
+            openActivity = openActivity,
         )
     }
 }
@@ -85,7 +87,11 @@ class TermuxSshSessionStarter(private val context: Context) : SshSessionCommandS
             .putExtra(TermuxConstants.TERMUX_APP.TERMUX_SERVICE.EXTRA_RUNNER, Runner.TERMINAL_SESSION.getName())
             .putExtra(
                 TermuxConstants.TERMUX_APP.TERMUX_SERVICE.EXTRA_SESSION_ACTION,
-                TermuxConstants.TERMUX_APP.TERMUX_SERVICE.VALUE_EXTRA_SESSION_ACTION_SWITCH_TO_NEW_SESSION_AND_OPEN_ACTIVITY.toString(),
+                (if (command.openActivity) {
+                    TermuxConstants.TERMUX_APP.TERMUX_SERVICE.VALUE_EXTRA_SESSION_ACTION_SWITCH_TO_NEW_SESSION_AND_OPEN_ACTIVITY
+                } else {
+                    TermuxConstants.TERMUX_APP.TERMUX_SERVICE.VALUE_EXTRA_SESSION_ACTION_SWITCH_TO_NEW_SESSION_AND_DONT_OPEN_ACTIVITY
+                }).toString(),
             )
             .putExtra(TermuxConstants.TERMUX_APP.TERMUX_SERVICE.EXTRA_SHELL_NAME, command.shellName)
             .putExtra(
