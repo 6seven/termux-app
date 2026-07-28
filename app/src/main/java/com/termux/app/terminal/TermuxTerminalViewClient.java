@@ -4,8 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.Context;
-import android.media.AudioManager;
 import android.os.Environment;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -40,7 +38,6 @@ import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.data.TermuxUrlUtils;
 import com.termux.shared.view.KeyboardUtils;
 import com.termux.shared.view.ViewUtils;
-import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
 
@@ -58,9 +55,6 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     final TermuxActivity mActivity;
 
     final TermuxTerminalSessionActivityClient mTermuxTerminalSessionActivityClient;
-
-    /** Keeping track of the special keys acting as Ctrl and Fn for the soft keyboard and other hardware keys. */
-    boolean mVirtualControlKeyDown, mVirtualFnKeyDown;
 
     private Runnable mShowSoftKeyboardRunnable;
 
@@ -239,7 +233,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     @SuppressLint("RtlHardcoded")
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession currentSession) {
-        if (handleVirtualKeys(keyCode, e, true)) return true;
+        if (handleVolumeKeys(keyCode, e, true, currentSession)) return true;
 
         if (keyCode == KeyEvent.KEYCODE_ENTER && !currentSession.isRunning()) {
             mTermuxTerminalSessionActivityClient.removeFinishedSession(currentSession);
@@ -297,22 +291,15 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
             return true;
         }
 
-        return handleVirtualKeys(keyCode, e, false);
+        return handleVolumeKeys(keyCode, e, false, null);
     }
 
-    /** Handle dedicated volume buttons as virtual keys if applicable. */
-    private boolean handleVirtualKeys(int keyCode, KeyEvent event, boolean down) {
-        InputDevice inputDevice = event.getDevice();
-        if (mActivity.getProperties().areVirtualVolumeKeysDisabled()) {
-            return false;
-        } else if (inputDevice != null && inputDevice.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) {
-            // Do not steal dedicated buttons from a full external keyboard.
-            return false;
-        } else if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
-            mVirtualControlKeyDown = down;
+    private boolean handleVolumeKeys(int keyCode, KeyEvent event, boolean down, TerminalSession currentSession) {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (down && event.getRepeatCount() == 0 && currentSession != null) currentSession.write("\r");
             return true;
         } else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            mVirtualFnKeyDown = down;
+            if (down && event.getRepeatCount() == 0) mActivity.openWorkflowConsole();
             return true;
         }
         return false;
@@ -322,7 +309,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
     @Override
     public boolean readControlKey() {
-        return readExtraKeysSpecialButton(SpecialButton.CTRL) || mVirtualControlKeyDown;
+        return readExtraKeysSpecialButton(SpecialButton.CTRL);
     }
 
     @Override
@@ -359,107 +346,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
     @Override
     public boolean onCodePoint(final int codePoint, boolean ctrlDown, TerminalSession session) {
-        if (mVirtualFnKeyDown) {
-            int resultingKeyCode = -1;
-            int resultingCodePoint = -1;
-            boolean altDown = false;
-            int lowerCase = Character.toLowerCase(codePoint);
-            switch (lowerCase) {
-                // Arrow keys.
-                case 'w':
-                    resultingKeyCode = KeyEvent.KEYCODE_DPAD_UP;
-                    break;
-                case 'a':
-                    resultingKeyCode = KeyEvent.KEYCODE_DPAD_LEFT;
-                    break;
-                case 's':
-                    resultingKeyCode = KeyEvent.KEYCODE_DPAD_DOWN;
-                    break;
-                case 'd':
-                    resultingKeyCode = KeyEvent.KEYCODE_DPAD_RIGHT;
-                    break;
-
-                // Page up and down.
-                case 'p':
-                    resultingKeyCode = KeyEvent.KEYCODE_PAGE_UP;
-                    break;
-                case 'n':
-                    resultingKeyCode = KeyEvent.KEYCODE_PAGE_DOWN;
-                    break;
-
-                // Some special keys:
-                case 't':
-                    resultingKeyCode = KeyEvent.KEYCODE_TAB;
-                    break;
-                case 'i':
-                    resultingKeyCode = KeyEvent.KEYCODE_INSERT;
-                    break;
-                case 'h':
-                    resultingCodePoint = '~';
-                    break;
-
-                // Special characters to input.
-                case 'u':
-                    resultingCodePoint = '_';
-                    break;
-                case 'l':
-                    resultingCodePoint = '|';
-                    break;
-
-                // Function keys.
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7':
-                case '8':
-                case '9':
-                    resultingKeyCode = (codePoint - '1') + KeyEvent.KEYCODE_F1;
-                    break;
-                case '0':
-                    resultingKeyCode = KeyEvent.KEYCODE_F10;
-                    break;
-
-                // Other special keys.
-                case 'e':
-                    resultingCodePoint = /*Escape*/ 27;
-                    break;
-                case '.':
-                    resultingCodePoint = /*^.*/ 28;
-                    break;
-
-                case 'b': // alt+b, jumping backward in readline.
-                case 'f': // alf+f, jumping forward in readline.
-                case 'x': // alt+x, common in emacs.
-                    resultingCodePoint = lowerCase;
-                    altDown = true;
-                    break;
-
-                // Volume control.
-                case 'v':
-                    resultingCodePoint = -1;
-                    AudioManager audio = (AudioManager) mActivity.getSystemService(Context.AUDIO_SERVICE);
-                    audio.adjustSuggestedStreamVolume(AudioManager.ADJUST_SAME, AudioManager.USE_DEFAULT_STREAM_TYPE, AudioManager.FLAG_SHOW_UI);
-                    break;
-
-                // Writing mode:
-                case 'q':
-                case 'k':
-                    mActivity.toggleTerminalToolbar();
-                    mVirtualFnKeyDown=false; // force disable fn key down to restore keyboard input into terminal view, fixes termux/termux-app#1420
-                    break;
-            }
-
-            if (resultingKeyCode != -1) {
-                TerminalEmulator term = session.getEmulator();
-                session.write(KeyHandler.getCode(resultingKeyCode, 0, term.isCursorKeysApplicationMode(), term.isKeypadApplicationMode()));
-            } else if (resultingCodePoint != -1) {
-                session.writeCodePoint(altDown, resultingCodePoint);
-            }
-            return true;
-        } else if (ctrlDown) {
+        if (ctrlDown) {
             if (codePoint == 106 /* Ctrl+j or \n */ && !session.isRunning()) {
                 mTermuxTerminalSessionActivityClient.removeFinishedSession(session);
                 return true;

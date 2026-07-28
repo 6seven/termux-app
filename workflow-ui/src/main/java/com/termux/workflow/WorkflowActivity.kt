@@ -2,6 +2,7 @@ package com.termux.workflow
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
@@ -23,5 +24,13 @@ class WorkflowActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         requestedDestination = WorkflowDestination.fromExtra(intent.getStringExtra(WorkflowDestination.EXTRA_DESTINATION))
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP && event.repeatCount == 0) {
+            finish()
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
     }
 }
