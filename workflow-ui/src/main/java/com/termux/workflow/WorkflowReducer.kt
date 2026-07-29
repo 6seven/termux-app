@@ -11,7 +11,7 @@ data class BindingFlow(
 )
 
 data class WorkflowState(
-    val destination: WorkflowDestination = WorkflowDestination.Issues,
+    val destination: WorkflowDestination = WorkflowDestination.Tracker,
     val activeProfile: HostProfile? = null,
     val connectionMode: ConnectionMode = ConnectionMode.Loading,
     val data: WorkflowData = WorkflowData(),

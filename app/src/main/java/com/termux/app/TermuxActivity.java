@@ -586,7 +586,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     public void openWorkflowConsole() {
-        ActivityUtils.startActivity(this, WorkflowDestination.Issues.intent(this));
+        ActivityUtils.startActivity(this, WorkflowDestination.Tracker.intent(this));
     }
 
     private void setNewSessionButtonView() {

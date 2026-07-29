@@ -6,13 +6,13 @@ import org.junit.Test
 class WorkflowDestinationTest {
     @Test
     fun everyDrawerValueMapsToOneSignalRailDestination() {
-        val values = listOf("issues", "projects", "workspaces", "usage", "tracker")
+        val values = listOf("tracker", "issues", "projects", "workspaces", "usage")
 
         assertEquals(WorkflowDestination.entries, values.map(WorkflowDestination::fromExtra))
     }
 
     @Test
-    fun missingDrawerExtraDefaultsToIssues() {
-        assertEquals(WorkflowDestination.Issues, WorkflowDestination.fromExtra(null))
+    fun missingDrawerExtraDefaultsToTracker() {
+        assertEquals(WorkflowDestination.Tracker, WorkflowDestination.fromExtra(null))
     }
 }

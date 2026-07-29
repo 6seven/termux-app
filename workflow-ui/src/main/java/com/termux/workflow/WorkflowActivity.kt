@@ -11,7 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 class WorkflowActivity : ComponentActivity() {
-    private var requestedDestination by mutableStateOf(WorkflowDestination.Issues)
+    private var requestedDestination by mutableStateOf(WorkflowDestination.Tracker)
     private var requestedTrackerTarget by mutableStateOf<TrackerPushTarget?>(null)
     private var requestedTrackerVersion by mutableIntStateOf(0)
 
