@@ -6,17 +6,28 @@ import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 class WorkflowActivity : ComponentActivity() {
     private var requestedDestination by mutableStateOf(WorkflowDestination.Issues)
+    private var requestedTrackerTarget by mutableStateOf<TrackerPushTarget?>(null)
+    private var requestedTrackerVersion by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedDestination = WorkflowDestination.fromExtra(intent?.getStringExtra(WorkflowDestination.EXTRA_DESTINATION))
+        requestedTrackerTarget = TrackerPushTarget.fromIntent(intent)
+        TrackerNotifications.initialize(this)
+        TrackerPushRegistration.registerAll(this)
         setContent {
-            WorkflowConsoleApp(requestedDestination = requestedDestination, onClose = ::finish)
+            WorkflowConsoleApp(
+                requestedDestination = requestedDestination,
+                requestedTrackerTarget = requestedTrackerTarget,
+                requestedTrackerVersion = requestedTrackerVersion,
+                onClose = ::finish,
+            )
         }
     }
 
@@ -24,6 +35,8 @@ class WorkflowActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         requestedDestination = WorkflowDestination.fromExtra(intent.getStringExtra(WorkflowDestination.EXTRA_DESTINATION))
+        requestedTrackerTarget = TrackerPushTarget.fromIntent(intent)
+        requestedTrackerVersion++
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

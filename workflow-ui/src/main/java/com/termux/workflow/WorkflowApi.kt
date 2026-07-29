@@ -31,6 +31,8 @@ interface WorkflowApi : ActivationGateway {
     suspend fun listProjects(): List<ProjectSummary>
     suspend fun listWorkspaces(includeArchived: Boolean = true): List<ActivationTarget>
     suspend fun trackerState(): TrackerState
+    suspend fun registerPushDevice(deviceId: String, profileId: String, registrationToken: String)
+    suspend fun unregisterPushDevice(deviceId: String, profileId: String)
     suspend fun refreshUsage(): TrackerState
     suspend fun activateTrackerItem(item: TrackerItem): ActivationResult
     suspend fun acknowledgeTrackerItem(item: TrackerItem)
@@ -164,6 +166,21 @@ class WorkflowApiClient(
     }
 
     override suspend fun trackerState(): TrackerState = parseTracker(request("GET", listOf("mobile", "tracker-state")))
+
+    override suspend fun registerPushDevice(deviceId: String, profileId: String, registrationToken: String) {
+        request(
+            "POST",
+            listOf("mobile", "push-registrations"),
+            JSONObject()
+                .put("device_id", deviceId)
+                .put("profile_id", profileId)
+                .put("registration_token", registrationToken),
+        )
+    }
+
+    override suspend fun unregisterPushDevice(deviceId: String, profileId: String) {
+        request("DELETE", listOf("mobile", "push-registrations", deviceId, profileId))
+    }
 
     override suspend fun refreshUsage(): TrackerState {
         request("POST", listOf("mobile", "tracker-state", "usage-refresh"), JSONObject())

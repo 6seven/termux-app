@@ -62,7 +62,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 private val ConsoleColors = darkColorScheme(
@@ -80,7 +82,12 @@ private val ConsoleColors = darkColorScheme(
 private val WaitingColor = Color(0xFFFF8B1F)
 
 @Composable
-fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () -> Unit) {
+fun WorkflowConsoleApp(
+    requestedDestination: WorkflowDestination,
+    requestedTrackerTarget: TrackerPushTarget? = null,
+    requestedTrackerVersion: Int = 0,
+    onClose: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileStore = remember { HostProfileStore(context) }
@@ -97,8 +104,13 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
     var issueMode by remember { mutableStateOf<IssueMode?>(null) }
     var bindingIssue by remember { mutableStateOf<IssueDetail?>(null) }
     var bindingPresets by remember { mutableStateOf<List<BindingPreset>>(emptyList()) }
+    var consumedTrackerTarget by remember { mutableStateOf<String?>(null) }
+    var activatingTrackerTarget by remember { mutableStateOf<String?>(null) }
 
     fun dispatch(event: WorkflowEvent) {
+        if (event is WorkflowEvent.DataLoaded && event.data.tracker.available) {
+            state.activeProfile?.id?.let { TrackerNotifications.reconcile(context, it, event.data.tracker) }
+        }
         state = WorkflowReducer.reduce(state, event)
     }
 
@@ -122,6 +134,7 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
         issueMode = null
         bindingIssue = null
         dispatch(WorkflowEvent.ProfileSelected(profile, repository.cached(profile)))
+        TrackerPushRegistration.registerProfile(context, profile.id)
         refresh(profile, activeToken)
     }
 
@@ -130,13 +143,18 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
         return runCatching { WorkflowApiClient(profile.pmgrUrl, activeToken) }.getOrNull()
     }
 
-    fun activate(target: ActivationTarget? = null, trackerItem: TrackerItem? = null, closeAfterActivation: Boolean = false) {
-        val profile = state.activeProfile ?: return
-        val activationId = trackerItem?.id ?: target?.id ?: return
+    fun activate(
+        target: ActivationTarget? = null,
+        trackerItem: TrackerItem? = null,
+        closeAfterActivation: Boolean = false,
+        onFinished: (Boolean) -> Unit = {},
+    ) {
+        val profile = state.activeProfile ?: return onFinished(false)
+        val activationId = trackerItem?.id ?: target?.id ?: return onFinished(false)
         if (!state.canMutate) {
             val cachedTarget = target
             val connectionTmuxSession = state.data.tracker.connectionTmuxSession
-            if (cachedTarget != null && cachedTarget.id == state.data.tracker.activeTarget?.id && cachedTarget.tmuxSession != null) {
+            val focused = if (cachedTarget != null && cachedTarget.id == state.data.tracker.activeTarget?.id && cachedTarget.tmuxSession != null) {
                 runCatching {
                     SshLauncher(ActivationGateway { error("Offline") }, sessionStarter).focusCached(
                         profile,
@@ -145,7 +163,7 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
                     )
                 }.onSuccess {
                     if (closeAfterActivation) onClose()
-                }.onFailure { dispatch(WorkflowEvent.ActivationFailed(it.message ?: "Could not focus cached SSH session")) }
+                }.onFailure { dispatch(WorkflowEvent.ActivationFailed(it.message ?: "Could not focus cached SSH session")) }.isSuccess
             } else if (trackerItem != null && connectionTmuxSession != null) {
                 runCatching {
                     SshLauncher(ActivationGateway { error("Offline") }, sessionStarter).focusCached(
@@ -153,11 +171,12 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
                         trackerItem.id,
                         connectionTmuxSession,
                     )
-                }.onFailure { dispatch(WorkflowEvent.ActivationFailed(it.message ?: "Could not focus cached SSH session")) }
-            }
+                }.onFailure { dispatch(WorkflowEvent.ActivationFailed(it.message ?: "Could not focus cached SSH session")) }.isSuccess
+            } else false
+            onFinished(focused)
             return
         }
-        val client = api() ?: return
+        val client = api() ?: return onFinished(false)
         dispatch(WorkflowEvent.ActivationStarted(activationId))
         scope.launch {
             val result = try {
@@ -171,27 +190,34 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
                 throw error
             } catch (error: Throwable) {
                 dispatch(WorkflowEvent.ActivationFailed(error.message ?: "Activation failed"))
+                onFinished(false)
                 return@launch
             }
             if (trackerItem == null) {
                 dispatch(WorkflowEvent.ActivationSucceeded(result))
                 cache.write(profile.id, state.data)
                 if (closeAfterActivation) onClose()
+                onFinished(true)
                 return@launch
             }
             dispatch(WorkflowEvent.TrackerActivationSucceeded(result, trackerItem.id))
             cache.write(profile.id, state.data)
-            if (!trackerItem.completed) return@launch
+            if (!trackerItem.completed) {
+                onFinished(true)
+                return@launch
+            }
             try {
                 client.acknowledgeTrackerItem(trackerItem)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
                 dispatch(WorkflowEvent.TrackerAcknowledgementFailed(error.message ?: "Acknowledgement failed"))
+                onFinished(false)
                 return@launch
             }
             dispatch(WorkflowEvent.TrackerTaskAcknowledged(trackerItem.id))
             cache.write(profile.id, state.data)
+            onFinished(true)
         }
     }
 
@@ -297,8 +323,14 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
         dispatch(WorkflowEvent.DestinationSelected(requestedDestination))
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(requestedTrackerTarget, profiles) {
         if (profiles.isEmpty()) return@LaunchedEffect
+        val requestedProfile = requestedTrackerTarget?.let { target -> profiles.firstOrNull { it.id == target.profileId } }
+        if (requestedProfile != null) {
+            if (state.activeProfile?.id != requestedProfile.id) openProfile(requestedProfile)
+            return@LaunchedEffect
+        }
+        if (state.activeProfile != null) return@LaunchedEffect
         val fastest = selector.fastest(profiles) { profile -> profileStore.token(profile.id) }
         val fallback = profiles.firstOrNull { it.id == profileStore.selectedProfileId() } ?: profiles.first()
         openProfile(fastest ?: fallback)
@@ -307,17 +339,58 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
     LaunchedEffect(state.activeProfile?.id, activeToken) {
         val profile = state.activeProfile ?: return@LaunchedEffect
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                delay(5_000)
-                val client = runCatching { WorkflowApiClient(profile.pmgrUrl, activeToken) }.getOrNull() ?: continue
-                runCatching { client.trackerState() }
-                    .onSuccess { tracker ->
-                        dispatch(WorkflowEvent.DataLoaded(state.data.copy(tracker = tracker)))
-                        cache.write(profile.id, state.data)
-                    }
-                    .onFailure { error ->
-                        dispatch(WorkflowEvent.LoadFailed(error.message ?: "Host is unreachable", hasCache = true))
-                    }
+            val client = runCatching { WorkflowApiClient(profile.pmgrUrl, activeToken) }.getOrNull() ?: return@repeatOnLifecycle
+            runCatching { client.trackerState() }
+                .onSuccess { tracker ->
+                    val data = state.data.copy(tracker = tracker.withCachedConnection(state.data.tracker))
+                    dispatch(WorkflowEvent.DataLoaded(data))
+                    cache.write(profile.id, data)
+                }
+                .onFailure { error ->
+                    dispatch(WorkflowEvent.LoadFailed(error.message ?: "Host is unreachable", hasCache = true))
+                }
+            awaitCancellation()
+        }
+    }
+
+    LaunchedEffect(state.activeProfile?.id) {
+        val profile = state.activeProfile ?: return@LaunchedEffect
+        TrackerPushUpdates.updates.collect { profileId ->
+            if (profileId == profile.id) {
+                repository.cached(profile)?.let { dispatch(WorkflowEvent.DataLoaded(it)) }
+            }
+        }
+    }
+
+    LaunchedEffect(requestedTrackerTarget, requestedTrackerVersion, state.activeProfile?.id, state.canMutate) {
+        val target = requestedTrackerTarget ?: return@LaunchedEffect
+        val targetKey = "${target.profileId}:${target.id}:${target.eventId}"
+        val profile = state.activeProfile ?: return@LaunchedEffect
+        if (!state.canMutate || profile.id != target.profileId || consumedTrackerTarget == targetKey || activatingTrackerTarget == targetKey) return@LaunchedEffect
+        val tracker = runCatching { WorkflowApiClient(profile.pmgrUrl, activeToken).trackerState() }
+            .getOrElse { error ->
+                dispatch(WorkflowEvent.LoadFailed(error.message ?: "Host is unreachable", hasCache = true))
+                return@LaunchedEffect
+            }
+        if (!tracker.available) {
+            dispatch(WorkflowEvent.LoadFailed(tracker.error ?: "Tracker is unavailable", hasCache = true))
+            return@LaunchedEffect
+        }
+        val data = state.data.copy(tracker = tracker.withCachedConnection(state.data.tracker))
+        dispatch(WorkflowEvent.DataLoaded(data))
+        cache.write(profile.id, data)
+        val item = tracker.alertItem(target)
+        if (item == null) {
+            consumedTrackerTarget = targetKey
+            TrackerNotifications.cancel(context, target)
+            return@LaunchedEffect
+        }
+        activatingTrackerTarget = targetKey
+        activate(trackerItem = item) { succeeded ->
+            activatingTrackerTarget = null
+            if (succeeded) {
+                consumedTrackerTarget = targetKey
+                TrackerNotifications.cancel(context, target)
             }
         }
     }
@@ -435,6 +508,7 @@ fun WorkflowConsoleApp(requestedDestination: WorkflowDestination, onClose: () ->
                     openProfile(it)
                 },
                 onDelete = {
+                    TrackerPushRegistration.unregister(context, it, profileStore.token(it.id))
                     profileStore.delete(it.id)
                     profiles = profileStore.profiles()
                     if (state.activeProfile?.id == it.id) {

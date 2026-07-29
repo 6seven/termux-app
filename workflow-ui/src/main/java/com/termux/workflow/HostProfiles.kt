@@ -36,7 +36,21 @@ class HostProfileStore(context: Context) {
 
     fun token(profileId: String): String = credentials.getString("token:$profileId", "").orEmpty()
 
+    fun pushRegistrationToken(): String = credentials.getString(KEY_PUSH_TOKEN, "").orEmpty()
+
+    fun savePushRegistrationToken(token: String) {
+        credentials.edit().putString(KEY_PUSH_TOKEN, token).apply()
+    }
+
     fun selectedProfileId(): String? = profiles.getString(KEY_SELECTED, null)
+
+    @Synchronized
+    fun deviceId(): String {
+        profiles.getString(KEY_DEVICE_ID, null)?.takeIf(String::isNotBlank)?.let { return it }
+        return UUID.randomUUID().toString().also {
+            profiles.edit().putString(KEY_DEVICE_ID, it).commit()
+        }
+    }
 
     fun save(profile: HostProfile, token: String): HostProfile {
         val normalized = profile.copy(
@@ -73,6 +87,8 @@ class HostProfileStore(context: Context) {
     private companion object {
         const val KEY_PROFILES = "profiles"
         const val KEY_SELECTED = "selected_profile"
+        const val KEY_DEVICE_ID = "device_id"
+        const val KEY_PUSH_TOKEN = "push_registration_token"
     }
 }
 
@@ -101,19 +117,24 @@ class HostProfileSelector(
 }
 
 class WorkflowCache(private val context: Context) {
-    fun read(profileId: String): WorkflowData? = runCatching {
-        val file = file(profileId)
-        if (!file.exists()) return null
-        WorkflowCacheCodec.decode(file.readText())
-    }.getOrNull()
+    fun read(profileId: String): WorkflowData? = synchronized(LOCK) {
+        runCatching {
+            val file = file(profileId)
+            if (!file.exists()) return null
+            WorkflowCacheCodec.decode(file.readText())
+        }.getOrNull()
+    }
 
-    fun write(profileId: String, data: WorkflowData) {
-        val file = file(profileId)
-        file.parentFile?.mkdirs()
-        val temporary = File(file.parentFile, "${file.name}.tmp")
-        temporary.writeText(WorkflowCacheCodec.encode(data))
-        if (!temporary.renameTo(file)) {
-            file.writeText(temporary.readText())
+    fun write(profileId: String, data: WorkflowData) = synchronized(LOCK) {
+        val destination = file(profileId)
+        destination.parentFile?.mkdirs()
+        val temporary = File.createTempFile("${destination.name}.", ".tmp", destination.parentFile)
+        try {
+            temporary.writeText(WorkflowCacheCodec.encode(data))
+            if (!temporary.renameTo(destination)) {
+                destination.writeText(temporary.readText())
+            }
+        } finally {
             temporary.delete()
         }
     }
@@ -121,6 +142,10 @@ class WorkflowCache(private val context: Context) {
     private fun file(profileId: String): File {
         val digest = MessageDigest.getInstance("SHA-256").digest(profileId.toByteArray()).joinToString("") { "%02x".format(it) }
         return File(context.filesDir, "workflow-cache/$digest.json")
+    }
+
+    private companion object {
+        val LOCK = Any()
     }
 }
 

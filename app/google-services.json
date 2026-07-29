@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "957471721896",
+    "project_id": "hadesflowy",
+    "storage_bucket": "hadesflowy.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:957471721896:android:67958cb60a5ddaa361f59d",
+        "android_client_info": {
+          "package_name": "com.termux"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDe65WNzelRkD_af5cgrEvb05DVkCQHzQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

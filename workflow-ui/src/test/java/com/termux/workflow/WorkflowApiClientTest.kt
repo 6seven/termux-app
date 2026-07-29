@@ -114,6 +114,21 @@ class WorkflowApiClientTest {
     }
 
     @Test
+    fun pushRegistrationUsesDeviceAndProfileContract() = runTest {
+        server.enqueue(MockResponse().setBody("""{"registered":true}"""))
+
+        api.registerPushDevice("device-1", "profile-1", "fcm-token")
+        val request = server.takeRequest()
+
+        assertEquals("POST", request.method)
+        assertEquals("/mobile/push-registrations", request.path)
+        assertEquals(
+            "{\"device_id\":\"device-1\",\"profile_id\":\"profile-1\",\"registration_token\":\"fcm-token\"}",
+            request.body.readUtf8(),
+        )
+    }
+
+    @Test
     fun usageRefreshPollsWhilePmgrIsRefreshing() = runTest {
         server.enqueue(MockResponse().setBody("""{"accepted":true}"""))
         server.enqueue(

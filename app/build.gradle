@@ -2,6 +2,10 @@ plugins {
     id "com.android.application"
 }
 
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}
+
 ext {
     // The packageVariant defines the bootstrap variant that will be included in the app APK.
     // This must be supported by com.termux.shared.termux.TermuxBootstrap.PackageVariant or app will
