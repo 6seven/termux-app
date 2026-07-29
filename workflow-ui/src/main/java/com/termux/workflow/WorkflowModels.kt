@@ -120,7 +120,7 @@ data class TrackerItem(
 ) {
     val id: String get() = "$sessionId::$windowId::$pane"
     val completed: Boolean get() = state.equals("completed", true) || completedAt.isNotBlank()
-    val waiting: Boolean get() = completed && !acknowledged && attentionReason.equals("waiting", true)
+    val waiting: Boolean get() = !acknowledged && attentionReason.equals("waiting", true)
 }
 
 data class UsageMetric(

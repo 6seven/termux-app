@@ -44,9 +44,12 @@ class TrackerPushTest {
     fun alertRequiresAuthoritativeUnacknowledgedCompletion() {
         val target = TrackerPushTarget("event-1", "profile-1", "$0", "dev", "@7", "project", "%12")
         val completed = TrackerItem("$0", "dev", "@7", "project", "%12", "completed", "Review")
+        val waiting = TrackerItem("$0", "dev", "@7", "project", "%12", "in_progress", "Approve", "waiting")
 
         assertEquals(completed, TrackerState(items = listOf(completed)).alertItem(target))
+        assertEquals(waiting, TrackerState(items = listOf(waiting)).alertItem(target))
         assertNull(TrackerState(items = listOf(completed.copy(acknowledged = true))).alertItem(target))
+        assertNull(TrackerState(items = listOf(waiting.copy(acknowledged = true))).alertItem(target))
         assertNull(TrackerState().alertItem(target))
     }
 

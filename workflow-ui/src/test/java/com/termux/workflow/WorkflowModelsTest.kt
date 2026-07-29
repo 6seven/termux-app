@@ -35,7 +35,7 @@ class WorkflowModelsTest {
 
     @Test
     fun costAndWaitingStateSurviveCacheRoundTrip() {
-        val waiting = TrackerItem("$0", "dev", "@7", "project", "%12", "completed", "Approve", "waiting")
+        val waiting = TrackerItem("$0", "dev", "@7", "project", "%12", "in_progress", "Approve", "waiting")
         val cost = TokenCost(inputUncached = 1_000_000, output = 500_000, inputCached = 2_000_000)
         val data = WorkflowData(
             tracker = TrackerState(

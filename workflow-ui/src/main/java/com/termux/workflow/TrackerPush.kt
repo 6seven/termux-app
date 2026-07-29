@@ -96,7 +96,7 @@ data class TrackerPushMessage(
 }
 
 internal fun TrackerState.alertItem(target: TrackerPushTarget): TrackerItem? =
-    items.firstOrNull { it.id == target.id && it.completed && !it.acknowledged }
+    items.firstOrNull { it.id == target.id && !it.acknowledged && (it.completed || it.waiting) }
 
 object TrackerPushRegistration {
     private const val TOKEN = "registration_token"
@@ -267,7 +267,7 @@ object TrackerNotifications {
     fun reconcile(context: Context, profileId: String, tracker: TrackerState) {
         if (!tracker.available) return
         val activeKeys = tracker.items
-            .filter { it.completed && !it.acknowledged }
+            .filter { !it.acknowledged && (it.completed || it.waiting) }
             .mapTo(mutableSetOf()) { "$profileId:${it.id}" }
         val staleKeys = storedKeys(context).filter { it.startsWith("$profileId:") && it !in activeKeys }
         staleKeys.forEach { key -> NotificationManagerCompat.from(context).cancel(key.hashCode()) }
