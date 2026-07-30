@@ -9,6 +9,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.google.firebase.FirebaseApp
+import com.termux.shared.android.PermissionUtils
 
 class WorkflowActivity : ComponentActivity() {
     private var requestedDestination by mutableStateOf(WorkflowDestination.Tracker)
@@ -20,6 +22,9 @@ class WorkflowActivity : ComponentActivity() {
         requestedDestination = WorkflowDestination.fromExtra(intent?.getStringExtra(WorkflowDestination.EXTRA_DESTINATION))
         requestedTrackerTarget = TrackerPushTarget.fromIntent(intent)
         TrackerNotifications.initialize(this)
+        if (FirebaseApp.getApps(this).isNotEmpty() && !PermissionUtils.checkIfBatteryOptimizationsDisabled(this)) {
+            PermissionUtils.requestDisableBatteryOptimizations(this)
+        }
         TrackerPushRegistration.registerAll(this)
         setContent {
             WorkflowConsoleApp(
