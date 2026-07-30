@@ -26,7 +26,7 @@ class WorkflowActivity : ComponentActivity() {
                 requestedDestination = requestedDestination,
                 requestedTrackerTarget = requestedTrackerTarget,
                 requestedTrackerVersion = requestedTrackerVersion,
-                onClose = ::finish,
+                onClose = ::openTerminal,
             )
         }
     }
@@ -41,9 +41,18 @@ class WorkflowActivity : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP && event.repeatCount == 0) {
-            finish()
+            openTerminal()
             return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun openTerminal() {
+        startActivity(Intent(Intent.ACTION_MAIN).setClassName(packageName, TERMINAL_ACTIVITY))
+        finish()
+    }
+
+    private companion object {
+        const val TERMINAL_ACTIVITY = "com.termux.app.TermuxActivity"
     }
 }
