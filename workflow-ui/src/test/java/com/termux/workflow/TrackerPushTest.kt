@@ -25,6 +25,7 @@ class TrackerPushTest {
 
         requireNotNull(message)
         assertEquals("event-1", message.target.eventId)
+        assertEquals("completed", message.target.change)
         assertEquals("$0::@7::%12", message.target.id)
     }
 
@@ -42,7 +43,7 @@ class TrackerPushTest {
 
     @Test
     fun alertRequiresAuthoritativeUnacknowledgedCompletion() {
-        val target = TrackerPushTarget("event-1", "profile-1", "$0", "dev", "@7", "project", "%12")
+        val target = TrackerPushTarget("event-1", "waiting", "profile-1", "$0", "dev", "@7", "project", "%12")
         val completed = TrackerItem("$0", "dev", "@7", "project", "%12", "completed", "Review")
         val waiting = TrackerItem("$0", "dev", "@7", "project", "%12", "in_progress", "Approve", "waiting")
 
@@ -55,7 +56,7 @@ class TrackerPushTest {
 
     @Test
     fun notificationIdentityIncludesHostProfile() {
-        val first = TrackerPushTarget("event-1", "profile-1", "$0", "dev", "@7", "project", "%12")
+        val first = TrackerPushTarget("event-1", "completed", "profile-1", "$0", "dev", "@7", "project", "%12")
         val second = first.copy(profileId = "profile-2")
 
         assertNotEquals(TrackerNotifications.notificationId(first), TrackerNotifications.notificationId(second))

@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 
 data class TrackerPushTarget(
     val eventId: String,
+    val change: String,
     val profileId: String,
     val sessionId: String,
     val session: String,
@@ -40,6 +41,7 @@ data class TrackerPushTarget(
     fun putInto(intent: Intent): Intent = intent
         .putExtra(EXTRA_PROFILE_ID, profileId)
         .putExtra(EXTRA_EVENT_ID, eventId)
+        .putExtra(EXTRA_CHANGE, change)
         .putExtra(EXTRA_SESSION_ID, sessionId)
         .putExtra(EXTRA_SESSION, session)
         .putExtra(EXTRA_WINDOW_ID, windowId)
@@ -49,6 +51,7 @@ data class TrackerPushTarget(
     companion object {
         private const val EXTRA_PROFILE_ID = "com.termux.workflow.extra.TRACKER_PROFILE_ID"
         private const val EXTRA_EVENT_ID = "com.termux.workflow.extra.TRACKER_EVENT_ID"
+        private const val EXTRA_CHANGE = "com.termux.workflow.extra.TRACKER_CHANGE"
         private const val EXTRA_SESSION_ID = "com.termux.workflow.extra.TRACKER_SESSION_ID"
         private const val EXTRA_SESSION = "com.termux.workflow.extra.TRACKER_SESSION"
         private const val EXTRA_WINDOW_ID = "com.termux.workflow.extra.TRACKER_WINDOW_ID"
@@ -63,6 +66,7 @@ data class TrackerPushTarget(
             if (profileId.isBlank() || sessionId.isBlank() || windowId.isBlank() || pane.isBlank()) return null
             return TrackerPushTarget(
                 eventId = intent?.getStringExtra(EXTRA_EVENT_ID).orEmpty(),
+                change = intent?.getStringExtra(EXTRA_CHANGE).orEmpty(),
                 profileId = profileId,
                 sessionId = sessionId,
                 session = intent?.getStringExtra(EXTRA_SESSION).orEmpty(),
@@ -82,6 +86,7 @@ data class TrackerPushMessage(
             if (data["type"] != "tracker_state_changed") return null
             val target = TrackerPushTarget(
                 eventId = data["event_id"].orEmpty(),
+                change = data["change"].orEmpty(),
                 profileId = data["profile_id"].orEmpty(),
                 sessionId = data["session_id"].orEmpty(),
                 session = data["session"].orEmpty(),
@@ -161,6 +166,7 @@ object TrackerPushRegistration {
 
 object TrackerPushRefresh {
     private const val EVENT_ID = "event_id"
+    private const val CHANGE = "change"
     private const val PROFILE_ID = "profile_id"
     private const val SESSION_ID = "session_id"
     private const val SESSION = "session"
@@ -173,6 +179,7 @@ object TrackerPushRefresh {
             .setInputData(
                 workDataOf(
                     EVENT_ID to message.target.eventId,
+                    CHANGE to message.target.change,
                     PROFILE_ID to message.target.profileId,
                     SESSION_ID to message.target.sessionId,
                     SESSION to message.target.session,
@@ -191,6 +198,7 @@ object TrackerPushRefresh {
 
     internal fun target(worker: TrackerPushRefreshWorker): TrackerPushTarget = TrackerPushTarget(
         eventId = worker.inputData.getString(EVENT_ID).orEmpty(),
+        change = worker.inputData.getString(CHANGE).orEmpty(),
         profileId = worker.inputData.getString(PROFILE_ID).orEmpty(),
         sessionId = worker.inputData.getString(SESSION_ID).orEmpty(),
         session = worker.inputData.getString(SESSION).orEmpty(),
