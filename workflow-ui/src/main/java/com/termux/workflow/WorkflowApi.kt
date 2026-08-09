@@ -287,6 +287,7 @@ class WorkflowApiClient(
                     attentionReason = item.string("attention_reason"),
                     acknowledged = item.optBoolean("acknowledged"),
                     completedAt = item.string("completed_at"),
+                    eventType = item.string("event_type"),
                 )
             },
             usage = parseUsage(usage),

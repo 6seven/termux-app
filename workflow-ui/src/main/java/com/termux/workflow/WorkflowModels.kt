@@ -117,6 +117,7 @@ data class TrackerItem(
     val attentionReason: String = "",
     val acknowledged: Boolean = false,
     val completedAt: String = "",
+    val eventType: String = "",
 ) {
     val id: String get() = "$sessionId::$windowId::$pane"
     val completed: Boolean get() = state.equals("completed", true) || completedAt.isNotBlank()

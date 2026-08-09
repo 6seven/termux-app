@@ -84,7 +84,7 @@ class WorkflowApiClientTest {
         server.enqueue(MockResponse().setBody("""{"accepted":true}"""))
         server.enqueue(
             MockResponse().setBody(
-                """{"tasks":[{"session_id":"$0","session":"dev","window_id":"@7","window":"project-manager","pane":"%12","status":"completed","summary":"Approve command","attention_reason":"waiting"}],"usage":{"fetched_at":"2026-07-28T08:00:00Z","weekly_remaining":72.5,"reset_credit_expiries":["2026-08-01T08:00:00Z"],"daily_token_total":1200000,"codex_token_total":700000,"opencode_token_total":500000,"token_cost":{"input_uncached":1000000,"output":500000,"input_cached":2000000},"daily_token_cost":{"input_uncached":100000,"output":50000,"input_cached":200000},"days":[{"day":"2026-07-28","codex":700000,"opencode":500000,"cost":{"input_uncached":100000,"output":50000,"input_cached":200000}}],"opencode_projects":[{"name":"project-manager","path":"/repo/project-manager","total":9000000,"daily":4000000}],"codex_limits":[{"label":"Five-hour","remaining_percent":80,"used_percent":20,"reset_at":"2026-07-28T12:00:00Z"},{"label":"7d","remaining_percent":72.5,"used_percent":27.5,"reset_at":"2026-08-03T08:00:00Z"}]}}""",
+                """{"tasks":[{"session_id":"$0","session":"dev","window_id":"@7","window":"project-manager","pane":"%12","status":"completed","summary":"Approve command","event_type":"permission","attention_reason":"waiting"}],"usage":{"fetched_at":"2026-07-28T08:00:00Z","weekly_remaining":72.5,"reset_credit_expiries":["2026-08-01T08:00:00Z"],"daily_token_total":1200000,"codex_token_total":700000,"opencode_token_total":500000,"token_cost":{"input_uncached":1000000,"output":500000,"input_cached":2000000},"daily_token_cost":{"input_uncached":100000,"output":50000,"input_cached":200000},"days":[{"day":"2026-07-28","codex":700000,"opencode":500000,"cost":{"input_uncached":100000,"output":50000,"input_cached":200000}}],"opencode_projects":[{"name":"project-manager","path":"/repo/project-manager","total":9000000,"daily":4000000}],"codex_limits":[{"label":"Five-hour","remaining_percent":80,"used_percent":20,"reset_at":"2026-07-28T12:00:00Z"},{"label":"7d","remaining_percent":72.5,"used_percent":27.5,"reset_at":"2026-08-03T08:00:00Z"}]}}""",
             ),
         )
 
@@ -111,6 +111,7 @@ class WorkflowApiClientTest {
         assertEquals("4M", tracker.usage.projects.single().dailyDisplay)
         assertEquals("2026-07-28T08:00:00Z", tracker.usage.refreshedAt)
         assertEquals(true, tracker.items.single().waiting)
+        assertEquals("permission", tracker.items.single().eventType)
     }
 
     @Test

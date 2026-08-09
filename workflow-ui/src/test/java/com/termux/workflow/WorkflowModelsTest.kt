@@ -35,7 +35,7 @@ class WorkflowModelsTest {
 
     @Test
     fun costAndWaitingStateSurviveCacheRoundTrip() {
-        val waiting = TrackerItem("$0", "dev", "@7", "project", "%12", "in_progress", "Approve", "waiting")
+        val waiting = TrackerItem("$0", "dev", "@7", "project", "%12", "in_progress", "Approve", "waiting", eventType = "permission")
         val cost = TokenCost(inputUncached = 1_000_000, output = 500_000, inputCached = 2_000_000)
         val data = WorkflowData(
             tracker = TrackerState(
@@ -47,6 +47,7 @@ class WorkflowModelsTest {
         val decoded = WorkflowCacheCodec.decode(WorkflowCacheCodec.encode(data))
 
         assertTrue(decoded.tracker.items.single().waiting)
+        assertEquals("permission", decoded.tracker.items.single().eventType)
         assertFalse(waiting.copy(acknowledged = true).waiting)
         assertEquals(cost, decoded.tracker.usage.tokenCost)
         assertEquals(cost, decoded.tracker.usage.dailyTokenCost)

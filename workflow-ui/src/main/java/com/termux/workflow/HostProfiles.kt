@@ -190,7 +190,7 @@ object WorkflowCacheCodec {
         .put("active_target", tracker.activeTarget?.let(::targetJson))
         .put("current_target", tracker.currentTarget?.let(::targetJson))
         .put("connection_tmux_session", tracker.connectionTmuxSession)
-        .put("items", JSONArray(tracker.items.map { JSONObject().put("session_id", it.sessionId).put("session", it.session).put("window_id", it.windowId).put("window", it.window).put("pane", it.pane).put("state", it.state).put("title", it.title).put("attention_reason", it.attentionReason).put("acknowledged", it.acknowledged).put("completed_at", it.completedAt) }))
+        .put("items", JSONArray(tracker.items.map { JSONObject().put("session_id", it.sessionId).put("session", it.session).put("window_id", it.windowId).put("window", it.window).put("pane", it.pane).put("state", it.state).put("title", it.title).put("attention_reason", it.attentionReason).put("acknowledged", it.acknowledged).put("completed_at", it.completedAt).put("event_type", it.eventType) }))
         .put("usage", JSONObject()
             .put("metrics", JSONArray(tracker.usage.metrics.map { JSONObject().put("label", it.label).put("used", it.used).put("limit", it.limit).put("unit", it.unit).put("reset_at", it.resetAt) }))
             .put("reset_credit_expiries", JSONArray(tracker.usage.resetCreditExpiries))
@@ -218,7 +218,7 @@ object WorkflowCacheCodec {
             activeTarget = value.optJSONObject("active_target")?.let(::parseTarget),
             currentTarget = value.optJSONObject("current_target")?.let(::parseTarget),
             connectionTmuxSession = value.optString("connection_tmux_session").takeIf(String::isNotBlank),
-            items = (0 until items.length()).map { items.getJSONObject(it) }.map { TrackerItem(it.optString("session_id"), it.optString("session"), it.optString("window_id"), it.optString("window"), it.optString("pane"), it.optString("state"), it.optString("title"), it.optString("attention_reason"), it.optBoolean("acknowledged"), it.optString("completed_at")) },
+            items = (0 until items.length()).map { items.getJSONObject(it) }.map { TrackerItem(it.optString("session_id"), it.optString("session"), it.optString("window_id"), it.optString("window"), it.optString("pane"), it.optString("state"), it.optString("title"), it.optString("attention_reason"), it.optBoolean("acknowledged"), it.optString("completed_at"), it.optString("event_type")) },
             usage = UsageState(
                 metrics = (0 until metrics.length()).map { metrics.getJSONObject(it) }.map { UsageMetric(it.optString("label"), it.optDouble("used"), if (it.isNull("limit")) null else it.optDouble("limit"), it.optString("unit"), it.optString("reset_at")) },
                 resetCreditExpiries = usage.optJSONArray("reset_credit_expiries")?.let { expiries -> (0 until expiries.length()).map(expiries::optString) }.orEmpty(),

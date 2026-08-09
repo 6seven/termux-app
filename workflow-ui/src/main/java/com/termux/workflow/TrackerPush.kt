@@ -103,6 +103,13 @@ data class TrackerPushMessage(
 internal fun TrackerState.alertItem(target: TrackerPushTarget): TrackerItem? =
     items.firstOrNull { it.id == target.id && !it.acknowledged && (it.completed || it.waiting) }
 
+internal fun trackerNotificationBody(item: TrackerItem): String = when {
+    item.eventType.equals("permission", ignoreCase = true) -> "AI Task needs permission"
+    item.attentionReason == "waiting" -> "AI Task is waiting for input"
+    item.attentionReason == "error" -> "AI Task needs attention"
+    else -> "AI Task completed"
+}
+
 object TrackerPushRegistration {
     private const val TOKEN = "registration_token"
     private const val PROFILE_ID = "profile_id"
@@ -247,11 +254,7 @@ object TrackerNotifications {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val title = item.window.ifBlank { "Workflow Console" }
-        val body = when (item.attentionReason) {
-            "waiting" -> "AI Task is waiting for input"
-            "error" -> "AI Task needs attention"
-            else -> "AI Task completed"
-        }
+        val body = trackerNotificationBody(item)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_more)
             .setContentTitle(title)

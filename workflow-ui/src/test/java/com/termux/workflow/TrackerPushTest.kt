@@ -61,4 +61,25 @@ class TrackerPushTest {
 
         assertNotEquals(TrackerNotifications.notificationId(first), TrackerNotifications.notificationId(second))
     }
+
+    @Test
+    fun permissionWaitUsesSpecificNotificationMessage() {
+        val permission = TrackerItem(
+            "$0",
+            "dev",
+            "@7",
+            "project",
+            "%12",
+            "in_progress",
+            "Approve",
+            attentionReason = "waiting",
+            eventType = "permission",
+        )
+
+        assertEquals("AI Task needs permission", trackerNotificationBody(permission))
+        assertEquals(
+            "AI Task is waiting for input",
+            trackerNotificationBody(permission.copy(eventType = "question")),
+        )
+    }
 }
