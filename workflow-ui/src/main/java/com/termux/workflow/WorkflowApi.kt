@@ -1,5 +1,6 @@
 package com.termux.workflow
 
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
@@ -30,6 +31,8 @@ interface WorkflowApi : ActivationGateway {
     suspend fun startWorkspace(redmineId: String, issueId: String, projectKey: String?, subject: String): StartWorkspaceResult
     suspend fun listProjects(): List<ProjectSummary>
     suspend fun listWorkspaces(includeArchived: Boolean = true): List<ActivationTarget>
+    suspend fun image(path: String): RemoteImage
+    suspend fun imageDirectory(basePath: String, path: String = ""): RemoteImageDirectory
     suspend fun trackerState(): TrackerState
     suspend fun registerPushDevice(deviceId: String, profileId: String, registrationToken: String)
     suspend fun unregisterPushDevice(deviceId: String, profileId: String)
@@ -95,6 +98,67 @@ class WorkflowApiClient(
             "token" to response.string("token"),
             "filename" to response.string("filename").ifBlank { filename },
             "content_type" to response.string("content_type").ifBlank { contentType.orEmpty() },
+        )
+    }
+
+    override suspend fun image(path: String): RemoteImage = withContext(Dispatchers.IO) {
+        val normalizedPath = normalizeRemoteImagePath(path)
+        require(normalizedPath.isNotEmpty()) { "Image path is required" }
+        val url = root.newBuilder()
+            .addPathSegment("mobile")
+            .addPathSegment("images")
+            .addQueryParameter("path", normalizedPath)
+            .build()
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $token")
+            .header("Accept", "image/*")
+            .get()
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                val text = response.body?.string().orEmpty()
+                throw WorkflowApiException(response.code, text.ifBlank { response.message })
+            }
+            val body = response.body
+                ?: throw WorkflowApiException(response.code, "Image response was empty")
+            val contentType = body.contentType()?.toString()?.substringBefore(';').orEmpty()
+            if (!contentType.startsWith("image/")) {
+                throw WorkflowApiException(415, "Server response is not an image")
+            }
+            if (body.contentLength() > MAX_IMAGE_BYTES) {
+                throw WorkflowApiException(413, "Image exceeds the 25 MiB limit")
+            }
+            RemoteImage(
+                path = normalizedPath,
+                contentType = contentType,
+                bytes = body.byteStream().readImageBytes(),
+            )
+        }
+    }
+
+    override suspend fun imageDirectory(basePath: String, path: String): RemoteImageDirectory {
+        require(basePath.isNotBlank()) { "Workspace base path is required" }
+        val query = buildMap {
+            put("base_path", basePath.trim())
+            path.takeIf(String::isNotBlank)?.let { put("path", it) }
+        }
+        val response = request("GET", listOf("mobile", "image-browser"), query = query)
+        return RemoteImageDirectory(
+            basePath = response.string("base_path"),
+            path = response.string("path"),
+            parentPath = response.string("parent_path").takeIf(String::isNotBlank),
+            entries = response.items().map { entry ->
+                RemoteImageEntry(
+                    name = entry.string("name"),
+                    path = entry.string("path"),
+                    kind = entry.string("kind"),
+                    contentType = entry.string("media_type"),
+                    sizeBytes = entry.optLong("size_bytes"),
+                )
+            },
+            truncated = response.optBoolean("truncated"),
         )
     }
 
@@ -332,6 +396,8 @@ class WorkflowApiClient(
     }
 
     companion object {
+        private const val MAX_IMAGE_BYTES = 25 * 1024 * 1024L
+
         private fun defaultClient() = OkHttpClient.Builder()
             .connectTimeout(2, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
@@ -339,6 +405,25 @@ class WorkflowApiClient(
             .callTimeout(45, TimeUnit.SECONDS)
             .build()
     }
+}
+
+internal fun normalizeRemoteImagePath(path: String): String =
+    path.lineSequence().joinToString(separator = "") { it.trim() }
+
+private fun InputStream.readImageBytes(): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    var total = 0L
+    while (true) {
+        val count = read(buffer)
+        if (count < 0) break
+        total += count
+        if (total > 25 * 1024 * 1024L) {
+            throw WorkflowApiException(413, "Image exceeds the 25 MiB limit")
+        }
+        output.write(buffer, 0, count)
+    }
+    return output.toByteArray()
 }
 
 private fun parseTokenCost(value: JSONObject?) = TokenCost(
@@ -401,6 +486,7 @@ internal fun parseTarget(
         status = value.string("status"),
         archived = value.optBoolean("archived") || value.string("status").equals("archived", true),
         tmuxSession = value.string("tmux_session").takeIf(String::isNotBlank),
+        directory = value.stringFirst("directory", "cwd"),
     )
 }
 

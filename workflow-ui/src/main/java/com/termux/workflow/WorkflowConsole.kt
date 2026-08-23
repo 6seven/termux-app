@@ -467,6 +467,22 @@ fun WorkflowConsoleApp(
                                     online = state.canMutate,
                                     onActivate = { activate(target = it, closeAfterActivation = true) },
                                 )
+                                WorkflowDestination.Images -> RemoteImageScreen(
+                                    enabled = state.activeProfile != null,
+                                    workspaces = state.data.targets,
+                                    activeIssueIds = state.data.issues.mapTo(mutableSetOf()) { it.issueId },
+                                    currentWorkspaceId = (state.data.tracker.currentTarget ?: state.data.tracker.activeTarget)?.id,
+                                    onRefreshWorkspaces = {
+                                        state.activeProfile?.let { profile -> refresh(profile, activeToken) }
+                                    },
+                                    loadImage = { path ->
+                                        api()?.image(path) ?: error("Select a pmgr host profile first")
+                                    },
+                                    loadDirectory = { basePath, path ->
+                                        api()?.imageDirectory(basePath, path)
+                                            ?: error("Select a pmgr host profile first")
+                                    },
+                                )
                                 WorkflowDestination.Usage -> UsageScreen(
                                     tracker = state.data.tracker,
                                     enabled = state.canMutate,

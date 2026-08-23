@@ -38,6 +38,14 @@ class WorkflowModelsTest {
         val waiting = TrackerItem("$0", "dev", "@7", "project", "%12", "in_progress", "Approve", "waiting", eventType = "permission")
         val cost = TokenCost(inputUncached = 1_000_000, output = 500_000, inputCached = 2_000_000)
         val data = WorkflowData(
+            targets = listOf(
+                ActivationTarget(
+                    id = "workspace:w1",
+                    name = "RM 1321",
+                    kind = TargetKind.IssueWorkspace,
+                    directory = "/Users/dev/redmine/rm-1321/main",
+                ),
+            ),
             tracker = TrackerState(
                 items = listOf(waiting),
                 usage = UsageState(tokenCost = cost, dailyTokenCost = cost, days = listOf(UsageDay("2026-07-28", 1, 2, cost))),
@@ -52,6 +60,7 @@ class WorkflowModelsTest {
         assertEquals(cost, decoded.tracker.usage.tokenCost)
         assertEquals(cost, decoded.tracker.usage.dailyTokenCost)
         assertEquals(cost, decoded.tracker.usage.days.single().cost)
+        assertEquals("/Users/dev/redmine/rm-1321/main", decoded.targets.single().directory)
         assertEquals("6.05", cost.cnyDisplay)
     }
 }

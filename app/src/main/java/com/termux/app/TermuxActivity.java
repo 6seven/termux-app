@@ -577,6 +577,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setWorkflowButton(R.id.workflow_issues_button, WorkflowDestination.Issues);
         setWorkflowButton(R.id.workflow_projects_button, WorkflowDestination.Projects);
         setWorkflowButton(R.id.workflow_workspaces_button, WorkflowDestination.Workspaces);
+        setWorkflowButton(R.id.workflow_images_button, WorkflowDestination.Images);
         setWorkflowButton(R.id.workflow_usage_button, WorkflowDestination.Usage);
         setWorkflowButton(R.id.workflow_tracker_button, WorkflowDestination.Tracker);
     }

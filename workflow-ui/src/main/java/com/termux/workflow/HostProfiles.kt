@@ -183,6 +183,7 @@ object WorkflowCacheCodec {
         .put("project_id", target.projectId).put("project_name", target.projectName)
         .put("redmine_id", target.issueRedmineId).put("issue_id", target.issueId).put("subject", target.subject)
         .put("status", target.status).put("archived", target.archived).put("tmux_session", target.tmuxSession)
+        .put("directory", target.directory)
 
     private fun trackerJson(tracker: TrackerState) = JSONObject()
         .put("available", tracker.available)

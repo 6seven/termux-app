@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
@@ -34,6 +35,82 @@ class WorkflowApiClientTest {
         assertEquals("/mobile/issues?view=assigned-open", request.path)
         assertEquals("Bearer secret", request.getHeader("Authorization"))
         assertEquals("42", issues.single().issueId)
+    }
+
+    @Test
+    fun workspacesIncludeServerDirectory() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"count":1,"items":[{"id":"workspace:w1","workspace_id":"w1","name":"RM 1321","issue_id":"1321","directory":"/Users/dev/redmine/rm-1321/main"}]}""",
+            ),
+        )
+
+        val target = api.listWorkspaces(includeArchived = false).single()
+        val request = server.takeRequest()
+
+        assertEquals("/mobile/workspaces?tracker_only=false&include_archived=false", request.path)
+        assertEquals("/Users/dev/redmine/rm-1321/main", target.directory)
+    }
+
+    @Test
+    fun imageUsesAuthenticatedPathContractAndReturnsBinaryContent() = runTest {
+        val bytes = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47)
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "image/png")
+                .setBody(okio.Buffer().write(bytes)),
+        )
+
+        val image = api.image(" \n /projects/game/\r\n  scene one.png \n ")
+        val request = server.takeRequest()
+
+        assertEquals(
+            "/mobile/images?path=%2Fprojects%2Fgame%2Fscene%20one.png",
+            request.path,
+        )
+        assertEquals("Bearer secret", request.getHeader("Authorization"))
+        assertEquals("image/*", request.getHeader("Accept"))
+        assertEquals("/projects/game/scene one.png", image.path)
+        assertEquals("image/png", image.contentType)
+        assertArrayEquals(bytes, image.bytes)
+    }
+
+    @Test
+    fun imageRejectsNonImageResponses() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "text/plain")
+                .setBody("not an image"),
+        )
+
+        val error = runCatching { api.image("projects/readme.txt") }.exceptionOrNull()
+
+        assertEquals(415, (error as WorkflowApiException).statusCode)
+    }
+
+    @Test
+    fun imageDirectoryUsesWorkspaceBrowserContract() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"base_path":"/Users/dev/redmine/rm-1321/main","path":"assets/wave-four","parent_path":"assets","count":2,"truncated":false,"items":[{"name":"preparation","path":"assets/wave-four/preparation","kind":"directory","media_type":null,"size_bytes":null},{"name":"composition.png","path":"assets/wave-four/composition.png","kind":"image","media_type":"image/png","size_bytes":3456}]}""",
+            ),
+        )
+
+        val directory = api.imageDirectory(
+            "/Users/dev/redmine/rm-1321/main",
+            "assets/wave-four",
+        )
+        val request = server.takeRequest()
+
+        assertEquals(
+            "/mobile/image-browser?base_path=%2FUsers%2Fdev%2Fredmine%2Frm-1321%2Fmain&path=assets%2Fwave-four",
+            request.path,
+        )
+        assertEquals("Bearer secret", request.getHeader("Authorization"))
+        assertEquals("assets", directory.parentPath)
+        assertEquals(true, directory.entries.first().isDirectory)
+        assertEquals("image/png", directory.entries.last().contentType)
+        assertEquals(3456, directory.entries.last().sizeBytes)
     }
 
     @Test

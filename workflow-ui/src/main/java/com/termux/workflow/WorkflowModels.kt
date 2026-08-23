@@ -54,6 +54,30 @@ data class Attachment(
     val contentUrl: String = "",
 )
 
+data class RemoteImage(
+    val path: String,
+    val contentType: String,
+    val bytes: ByteArray,
+)
+
+data class RemoteImageDirectory(
+    val basePath: String,
+    val path: String,
+    val parentPath: String?,
+    val entries: List<RemoteImageEntry>,
+    val truncated: Boolean = false,
+)
+
+data class RemoteImageEntry(
+    val name: String,
+    val path: String,
+    val kind: String,
+    val contentType: String = "",
+    val sizeBytes: Long = 0,
+) {
+    val isDirectory: Boolean get() = kind == "directory"
+}
+
 data class JournalEntry(
     val id: String,
     val author: String = "",
@@ -104,6 +128,7 @@ data class ActivationTarget(
     val status: String = "",
     val archived: Boolean = false,
     val tmuxSession: String? = null,
+    val directory: String = "",
 )
 
 data class TrackerItem(

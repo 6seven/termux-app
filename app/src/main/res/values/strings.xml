@@ -89,6 +89,7 @@
     <string name="workflow_issues">Workflow: Issues</string>
     <string name="workflow_projects">Workflow: Projects</string>
     <string name="workflow_workspaces">Workflow: Workspaces</string>
+    <string name="workflow_images">Workflow: Images</string>
     <string name="workflow_usage">Workflow: Usage</string>
     <string name="workflow_tracker">Workflow: Tracker</string>
 

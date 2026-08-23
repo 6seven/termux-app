@@ -8,6 +8,7 @@ enum class WorkflowDestination(val extraValue: String, val shortLabel: String) {
     Issues("issues", "IS"),
     Projects("projects", "PR"),
     Workspaces("workspaces", "WS"),
+    Images("images", "IM"),
     Usage("usage", "US");
 
     fun intent(context: Context): Intent = Intent(context, WorkflowActivity::class.java)

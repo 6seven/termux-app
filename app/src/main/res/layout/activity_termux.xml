@@ -90,6 +90,14 @@
                         android:text="@string/workflow_workspaces" />
 
                     <com.google.android.material.button.MaterialButton
+                        android:id="@+id/workflow_images_button"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:gravity="start|center_vertical"
+                        android:text="@string/workflow_images" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/workflow_usage_button"
                         style="?android:attr/borderlessButtonStyle"
                         android:layout_width="match_parent"
