@@ -1,6 +1,7 @@
 package com.termux.workflow
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -408,6 +409,10 @@ fun WorkflowConsoleApp(
                         dispatch(WorkflowEvent.DestinationSelected(destination))
                     },
                     onProfiles = { showProfiles = true },
+                    onUpdate = {
+                        context.startActivity(Intent(context, AppUpdateActivity::class.java)
+                            .putExtra("profile_id", state.activeProfile?.id))
+                    },
                     onClose = onClose,
                 )
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -545,6 +550,7 @@ private fun SignalRail(
     profileName: String?,
     onDestination: (WorkflowDestination) -> Unit,
     onProfiles: () -> Unit,
+    onUpdate: () -> Unit,
     onClose: () -> Unit,
 ) {
     Column(
@@ -558,6 +564,8 @@ private fun SignalRail(
             Spacer(Modifier.height(6.dp))
         }
         Spacer(Modifier.weight(1f))
+        RailButton("更新", selected = false, onClick = onUpdate)
+        Spacer(Modifier.height(6.dp))
         RailButton("TX", selected = false, onClick = onClose)
     }
 }

@@ -4,6 +4,20 @@
 
     <application>
         <activity
+            android:name="com.termux.workflow.AppUpdateActivity"
+            android:exported="false"
+            android:label="应用更新"
+            android:theme="@style/Theme.WorkflowConsole" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths" />
+        </provider>
+        <activity
             android:name="com.termux.workflow.WorkflowActivity"
             android:exported="false"
             android:label="Workflow Console"

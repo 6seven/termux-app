@@ -527,6 +527,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             savedTextInput = savedInstanceState.getString(ARG_TERMINAL_TOOLBAR_TEXT_INPUT);
 
         terminalToolbarViewPager.setAdapter(new TerminalToolbarViewPager.PageAdapter(this, savedTextInput));
+        // Keep the input draft and modifier state alive across all three pages.
+        terminalToolbarViewPager.setOffscreenPageLimit(TerminalToolbarViewPager.TEXT_INPUT_PAGE);
         terminalToolbarViewPager.addOnPageChangeListener(new TerminalToolbarViewPager.OnPageChangeListener(this, terminalToolbarViewPager));
     }
 
@@ -536,7 +538,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         ViewGroup.LayoutParams layoutParams = terminalToolbarViewPager.getLayoutParams();
         layoutParams.height = Math.round(mTerminalToolbarDefaultHeight *
-            (mTermuxTerminalExtraKeys.getExtraKeysInfo() == null ? 0 : mTermuxTerminalExtraKeys.getExtraKeysInfo().getMatrix().length) *
+            mTermuxTerminalExtraKeys.getExtraKeysRowCount() *
             mProperties.getTerminalToolbarHeightScaleFactor());
         terminalToolbarViewPager.setLayoutParams(layoutParams);
     }
@@ -867,11 +869,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     public boolean isTerminalViewSelected() {
-        return getTerminalToolbarViewPager().getCurrentItem() == 0;
+        return !isTerminalToolbarTextInputViewSelected();
     }
 
     public boolean isTerminalToolbarTextInputViewSelected() {
-        return getTerminalToolbarViewPager().getCurrentItem() == 1;
+        return getTerminalToolbarViewPager().getCurrentItem() == TerminalToolbarViewPager.TEXT_INPUT_PAGE;
     }
 
 
@@ -989,9 +991,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mProperties != null) {
             reloadProperties();
 
-            if (mExtraKeysView != null) {
-                mExtraKeysView.setButtonTextAllCaps(mProperties.shouldExtraKeysTextBeAllCaps());
-                mExtraKeysView.reload(mTermuxTerminalExtraKeys.getExtraKeysInfo(), mTerminalToolbarDefaultHeight);
+            ViewPager toolbar = getTerminalToolbarViewPager();
+            if (toolbar != null && toolbar.getAdapter() instanceof TerminalToolbarViewPager.PageAdapter) {
+                ((TerminalToolbarViewPager.PageAdapter) toolbar.getAdapter()).reloadExtraKeys();
             }
 
             // Update NightMode.APP_NIGHT_MODE

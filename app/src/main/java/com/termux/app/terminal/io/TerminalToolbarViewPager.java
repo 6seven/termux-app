@@ -16,9 +16,14 @@ import com.termux.terminal.TerminalSession;
 
 public class TerminalToolbarViewPager {
 
+    public static final int EXTRA_KEYS_PAGE = 0;
+    public static final int ADDITIONAL_EXTRA_KEYS_PAGE = 1;
+    public static final int TEXT_INPUT_PAGE = 2;
+
     public static class PageAdapter extends PagerAdapter {
 
         final TermuxActivity mActivity;
+        final ExtraKeysView[] mExtraKeysViews = new ExtraKeysView[2];
         String mSavedTextInput;
 
         public PageAdapter(TermuxActivity activity, String savedTextInput) {
@@ -28,7 +33,7 @@ public class TerminalToolbarViewPager {
 
         @Override
         public int getCount() {
-            return 2;
+            return 3;
         }
 
         @Override
@@ -41,17 +46,18 @@ public class TerminalToolbarViewPager {
         public Object instantiateItem(@NonNull ViewGroup collection, int position) {
             LayoutInflater inflater = LayoutInflater.from(mActivity);
             View layout;
-            if (position == 0) {
+            if (position != TEXT_INPUT_PAGE) {
                 layout = inflater.inflate(R.layout.view_terminal_toolbar_extra_keys, collection, false);
                 ExtraKeysView extraKeysView = (ExtraKeysView) layout;
                 extraKeysView.setExtraKeysViewClient(mActivity.getTermuxTerminalExtraKeys());
-                extraKeysView.setButtonTextAllCaps(mActivity.getProperties().shouldExtraKeysTextBeAllCaps());
-                mActivity.setExtraKeysView(extraKeysView);
-                extraKeysView.reload(mActivity.getTermuxTerminalExtraKeys().getExtraKeysInfo(),
-                    mActivity.getTerminalToolbarDefaultHeight());
+                mExtraKeysViews[position] = extraKeysView;
+                // Both key pages use the primary page's modifier state.
+                if (position == EXTRA_KEYS_PAGE) mActivity.setExtraKeysView(extraKeysView);
+                reloadExtraKeys(position);
 
                 // apply extra keys fix if enabled in prefs
-                if (mActivity.getProperties().isUsingFullScreen() && mActivity.getProperties().isUsingFullScreenWorkAround()) {
+                if (position == EXTRA_KEYS_PAGE && mActivity.getProperties().isUsingFullScreen() &&
+                    mActivity.getProperties().isUsingFullScreenWorkAround()) {
                     FullScreenWorkAround.apply(mActivity);
                 }
 
@@ -85,7 +91,26 @@ public class TerminalToolbarViewPager {
 
         @Override
         public void destroyItem(@NonNull ViewGroup collection, int position, @NonNull Object view) {
+            if (position != TEXT_INPUT_PAGE) {
+                mExtraKeysViews[position] = null;
+                if (position == EXTRA_KEYS_PAGE) mActivity.setExtraKeysView(null);
+            }
             collection.removeView((View) view);
+        }
+
+        public void reloadExtraKeys() {
+            for (int position = 0; position < mExtraKeysViews.length; position++) {
+                reloadExtraKeys(position);
+            }
+        }
+
+        private void reloadExtraKeys(int position) {
+            ExtraKeysView extraKeysView = mExtraKeysViews[position];
+            if (extraKeysView == null) return;
+            TermuxTerminalExtraKeys extraKeys = mActivity.getTermuxTerminalExtraKeys();
+            extraKeysView.setButtonTextAllCaps(mActivity.getProperties().shouldExtraKeysTextBeAllCaps());
+            extraKeysView.reload(position == EXTRA_KEYS_PAGE ? extraKeys.getExtraKeysInfo() : extraKeys.getAdditionalExtraKeysInfo(),
+                mActivity.getTerminalToolbarDefaultHeight());
         }
 
     }
@@ -104,7 +129,7 @@ public class TerminalToolbarViewPager {
 
         @Override
         public void onPageSelected(int position) {
-            if (position == 0) {
+            if (position != TEXT_INPUT_PAGE) {
                 mActivity.getTerminalView().requestFocus();
             } else {
                 final EditText editText = mTerminalToolbarViewPager.findViewById(R.id.terminal_toolbar_text_input);
